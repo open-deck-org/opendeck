@@ -1,0 +1,12 @@
+# macOS
+.DS_Store
+
+# Generated narration audio (produced by the Audio Studio, never shipped)
+narration-audio.js
+
+# Exported artifacts
+*.standalone.html
+
+# Editor / OS noise
+*.swp
+Thumbs.db

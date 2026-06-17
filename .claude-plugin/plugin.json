@@ -1,0 +1,22 @@
+{
+  "name": "opendeck",
+  "description": "Build animated, narrated HTML presentation decks — step-by-step reveals, hover tooltips, a thumbnail rail, fullscreen, print-to-PDF, and in-browser ElevenLabs voice narration that bakes into a fully offline file.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Sinisha Djukic"
+  },
+  "homepage": "https://github.com/open-deck-org/opendeck",
+  "repository": "https://github.com/open-deck-org/opendeck",
+  "license": "MIT",
+  "keywords": [
+    "presentation",
+    "deck",
+    "slides",
+    "narration",
+    "animation",
+    "elevenlabs",
+    "text-to-speech",
+    "html",
+    "offline"
+  ]
+}
