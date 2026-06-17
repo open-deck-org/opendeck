@@ -120,6 +120,8 @@ Click the blue **Studio** button on the control bar. A five-step wizard walks yo
 
 ![Studio step 1 — Connect](docs/screenshots/studio-connect.png)
 
+> 🎙️ **Make it *your* voice.** You can [clone your own voice in minutes with ElevenLabs](https://elevenlabs.io/docs/eleven-creative/voices/voice-cloning/instant-voice-cloning) — record a minute or two of audio, grab the resulting Voice ID, and paste it here. Your deck then narrates in a voice your audience actually recognizes, for a personal, familiar touch no stock voice can match.
+
 **② Generate** — create one audio clip per narrated step, watching the progress bar.
 
 ![Studio step 2 — Generate](docs/screenshots/studio-generate.png)
