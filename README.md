@@ -114,14 +114,21 @@ Press `S` for the thumbnail rail — jump anywhere, and (when authoring) drag to
 
 ## Narration — the Audio Studio
 
-Open a deck and run `deckNarration.studio()` in the browser console (or click the blue **Studio** button). A five-step wizard walks you from key to offline file. **Your ElevenLabs API key is used only in your browser and is never written into any file** — only the generated audio clips get baked in.
+Click the blue **Studio** button on the control bar. A five-step wizard walks you from key to offline file. **Your ElevenLabs API key is used only in your browser and is never written into any file** — only the generated audio clips get baked in.
 
-| | |
-| --- | --- |
-| **① Connect** — paste your ElevenLabs key + Voice ID (session-only). | **② Generate** — one clip per narrated step, with a progress bar. |
-| ![Studio step 1 — Connect](docs/screenshots/studio-connect.png) | ![Studio step 2 — Generate](docs/screenshots/studio-generate.png) |
+**① Connect** — paste your ElevenLabs API key and Voice ID (kept for the session only).
 
-Then **③ Download** the clips as `narration-audio.js`, **④ Place** it next to the deck, and **⑤ Export** — ask your agent to *"build the standalone"* (or run `deckExport.standalone()`) to inline scripts, baked audio, and fonts into **one self-contained `.html` that narrates offline, anywhere, with no key**. Optionally `deckExport.deck()` packages it as a portable `.deck` file for a compatible player app.
+![Studio step 1 — Connect](docs/screenshots/studio-connect.png)
+
+**② Generate** — create one audio clip per narrated step, watching the progress bar.
+
+![Studio step 2 — Generate](docs/screenshots/studio-generate.png)
+
+**③ Download** — save the generated clips as a `narration-audio.js` file.
+
+**④ Place** — move that file into the same folder as your deck.
+
+**⑤ Export** — ask your AI agent to *"build the standalone"*. It inlines the scripts, the baked audio, and the fonts into **one self-contained `.html` that narrates offline, anywhere, with no key and no companion files**. To present on a phone or tablet, ask it to *"package this as a `.deck` file"* for a compatible player app.
 
 You write the narration text (one line per slide/step) in `narration-script.js`; the Studio reads it and keys each clip to its step.
 
