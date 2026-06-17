@@ -10,3 +10,6 @@ narration-audio.js
 # Editor / OS noise
 *.swp
 Thumbs.db
+
+# Playwright MCP scratch output
+.playwright-mcp/

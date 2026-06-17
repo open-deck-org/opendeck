@@ -6,6 +6,10 @@ OpenDeck is an [Agent Skill](https://www.agensi.io/learn/agent-skills-open-stand
 
 The skill follows the universal `SKILL.md` standard, so the **same skill folder works in Claude Code, OpenCode, Codex, Gemini CLI**, and other compatible agents.
 
+![A deck built with OpenDeck — editorial title slide](docs/screenshots/hero.png)
+
+> The screenshots below are from the included demo deck, *"Building Great Presentations"* — authored with this skill, five slides, narration scripted.
+
 ```
 opendeck/
 ├── .claude-plugin/          # Claude Code plugin + marketplace manifests
@@ -66,7 +70,60 @@ Once installed, ask your agent something like:
 
 > *"Use the opendeck skill to build a narrated deck about our Q3 roadmap."*
 
-The agent reads `SKILL.md` and scaffolds the deck from `assets/`. To add voice, open the deck and run `deckNarration.studio()` in the browser console (you supply your own ElevenLabs key — it never leaves your machine). See **[`skills/opendeck/README.md`](skills/opendeck/README.md)** for the full walkthrough and **[`skills/opendeck/SKILL.md`](skills/opendeck/SKILL.md)** for the complete build guide.
+The agent reads `SKILL.md` and scaffolds the deck from `assets/`. See **[`skills/opendeck/README.md`](skills/opendeck/README.md)** for the full walkthrough and **[`skills/opendeck/SKILL.md`](skills/opendeck/SKILL.md)** for the complete build guide.
+
+---
+
+## Presenting
+
+Every deck gets a control bar (it fades in on mouse movement and hides while you present):
+
+![The deck control bar](docs/screenshots/controls.png)
+
+| Control | What it does |
+| --- | --- |
+| **‹ ›  ·  1 / 5** | Step through reveals, then move between slides. The counter shows your place. |
+| **Reset · `R`** | Jump back to the first slide, step zero. |
+| **Fullscreen · `F`** | Present edge-to-edge. |
+| **Slides · `S`** | Toggle the thumbnail rail (slide overview). |
+| **Narrate** | Master on/off for voice — every step you land on speaks. |
+| **Auto-play** | Hands-free: reveal a step, play its clip, advance when it ends. |
+| **Studio** | Authoring tools (generate audio, export). Blue, and **hidden in the exported file**. |
+
+**Keyboard:** `←` / `→` step then change slides · `Space` / `PgDn` forward · `R` reset · number keys jump to a slide · `F` fullscreen · `S` slide rail.
+
+### Step-by-step reveals
+
+Add `data-step="1"`, `2`, `3`… to any element and it reveals in order as you click. Step dots (bottom-left) track progress automatically:
+
+![A slide revealing two of three points, with step dots](docs/screenshots/step-reveal.png)
+
+### Hover tooltips
+
+Add `data-tip="…"` to any element for a smart tooltip that flips above or below to stay on screen — useful for speaker cues or definitions:
+
+![A hover tooltip pointing at a slide element](docs/screenshots/tooltip.png)
+
+### Slide overview
+
+Press `S` for the thumbnail rail — jump anywhere, and (when authoring) drag to reorder:
+
+![The thumbnail rail showing all five slides](docs/screenshots/thumbnail-rail.png)
+
+---
+
+## Narration — the Audio Studio
+
+Open a deck and run `deckNarration.studio()` in the browser console (or click the blue **Studio** button). A five-step wizard walks you from key to offline file. **Your ElevenLabs API key is used only in your browser and is never written into any file** — only the generated audio clips get baked in.
+
+| | |
+| --- | --- |
+| **① Connect** — paste your ElevenLabs key + Voice ID (session-only). | **② Generate** — one clip per narrated step, with a progress bar. |
+| ![Studio step 1 — Connect](docs/screenshots/studio-connect.png) | ![Studio step 2 — Generate](docs/screenshots/studio-generate.png) |
+
+Then **③ Download** the clips as `narration-audio.js`, **④ Place** it next to the deck, and **⑤ Export** — ask your agent to *"build the standalone"* (or run `deckExport.standalone()`) to inline scripts, baked audio, and fonts into **one self-contained `.html` that narrates offline, anywhere, with no key**. Optionally `deckExport.deck()` packages it as a portable `.deck` file for a compatible player app.
+
+You write the narration text (one line per slide/step) in `narration-script.js`; the Studio reads it and keys each clip to its step.
 
 ---
 
