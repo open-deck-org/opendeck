@@ -318,6 +318,62 @@
     }
     :host([data-rail-anim]) .tapzones { transition: left 200ms cubic-bezier(.3,.7,.4,1); }
 
+    /* ── Portrait / mobile: rail becomes a horizontal strip at the TOP ──────
+       The controls sit at the bottom, so the slide list goes opposite them.
+       Toggled by the host [data-rail-top] attribute, which _fit() sets from
+       the viewport so this CSS and the JS layout math can never disagree. */
+    :host([data-rail-top]) .rail {
+      left: 0;
+      right: 0;
+      top: 0;
+      bottom: auto;
+      width: auto;
+      height: var(--deck-rail-h, 88px);
+      flex-direction: row;
+      align-items: stretch;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 8px 10px;
+      gap: 8px;
+      border-right: none;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    :host([data-rail-top]) .rail::-webkit-scrollbar { width: auto; height: 8px; }
+    :host([data-rail-top]) .rail[data-user-hidden] { transform: translateY(-100%); }
+    :host([data-rail-anim][data-rail-top]) .stage { transition: top 200ms cubic-bezier(.3,.7,.4,1); }
+    /* The drag-to-resize handle is horizontal-only; the top rail's height is
+       fixed, so hide it there. */
+    :host([data-rail-top]) .rail-resize { display: none; }
+    :host([data-rail-top]) .thumb {
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      height: 100%;
+    }
+    :host([data-rail-top]) .thumb .num {
+      order: 2;                 /* number sits UNDER the frame */
+      width: auto;
+      text-align: center;
+      padding-top: 0;
+    }
+    :host([data-rail-top]) .thumb .frame {
+      order: 1;
+      flex: none;
+      width: auto;
+      min-width: 0;
+      height: calc(var(--deck-rail-h, 88px) - 31px);   /* rail minus padding + num */
+    }
+    :host([data-rail-top]) .thumb::before {            /* reorder drop indicator → vertical */
+      left: auto;
+      right: auto;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      height: auto;
+    }
+    :host([data-rail-top]) .thumb[data-drop="before"]::before { left: -6px; top: 0; }
+    :host([data-rail-top]) .thumb[data-drop="after"]::before { right: -6px; top: 0; }
+
     .thumb {
       position: relative;
       display: flex;
@@ -987,20 +1043,24 @@
       this._syncRailHidden();
     }
 
+    // _scaleThumbs forces a sync layout (frame.offsetWidth) then writes N
+    // transforms. During a resize drag / window resize this can run many times
+    // a second; coalesce to one per frame. Also re-runs on orientation change,
+    // where the frame size (and thus thumb scale) flips with the rail.
+    _scheduleScaleThumbs() {
+      if (this._scaleRaf) return;
+      this._scaleRaf = requestAnimationFrame(() => {
+        this._scaleRaf = null;
+        this._scaleThumbs();
+      });
+    }
+
     _setRailWidth(px) {
       const w = Math.max(120, Math.min(360, Math.round(px)));
       this._railPx = w;
       this.style.setProperty('--deck-rail-w', w + 'px');
       this._fit();
-      // _scaleThumbs forces a sync layout (frame.offsetWidth) then writes
-      // N transforms. During a resize drag this runs per-pointermove;
-      // coalesce to one per frame.
-      if (!this._scaleRaf) {
-        this._scaleRaf = requestAnimationFrame(() => {
-          this._scaleRaf = null;
-          this._scaleThumbs();
-        });
-      }
+      this._scheduleScaleThumbs();
     }
 
     /** @page must live in the document stylesheet — it's a no-op inside
@@ -1164,6 +1224,10 @@
       return this._railPx || 0;
     }
 
+    /** Height of the rail when it sits at the top (portrait). Kept in sync
+     *  with the CSS via the --deck-rail-h custom property in _fit(). */
+    _railTopHeight() { return 88; }
+
     _fit() {
       if (!this._canvas) return;
       const stage = this._canvas.parentElement;
@@ -1171,26 +1235,40 @@
       // geometry — the scaled canvas is in shadow DOM, so the exporter's
       // resetTransformSelector can't reach .canvas.style.transform directly.
       if (this.hasAttribute('noscale')) {
+        this.removeAttribute('data-rail-top');
         this._canvas.style.transform = 'none';
-        if (stage) stage.style.left = '0';
+        if (stage) { stage.style.left = '0'; stage.style.top = '0'; }
         if (this._overlay) this._overlay.style.marginLeft = '0';
-        if (this._tapzones) this._tapzones.style.left = '0';
+        if (this._tapzones) { this._tapzones.style.left = '0'; this._tapzones.style.top = '0'; }
         return;
       }
-      const rw = this._railWidth();
-      if (stage) stage.style.left = rw + 'px';
+      // _railWidth() folds in every "is the rail showing?" condition and
+      // returns its px (0 when hidden). In portrait we instead dock it to the
+      // top — opposite the bottom controls — and inset the stage vertically.
+      const railPx = this._railWidth();
+      const topRail = railPx > 0 && window.innerHeight > window.innerWidth;
+      this.toggleAttribute('data-rail-top', topRail);
+
+      const rw = topRail ? 0 : railPx;
+      let rh = 0;
+      if (topRail) {
+        rh = this._railTopHeight();
+        this.style.setProperty('--deck-rail-h', rh + 'px');
+      }
+
+      if (stage) { stage.style.left = rw + 'px'; stage.style.top = rh + 'px'; }
       // Overlay is centred on the viewport via left:50% + translate(-50%);
-      // marginLeft shifts the centre by rw/2 so it lands in the middle of
-      // the [rw, innerWidth] stage region. Tapzones just inset from rw.
+      // marginLeft shifts the centre by rw/2 so it lands in the middle of the
+      // [rw, innerWidth] stage region (0 in portrait). Tapzones inset to match.
       if (this._overlay) this._overlay.style.marginLeft = (rw / 2) + 'px';
-      if (this._tapzones) this._tapzones.style.left = rw + 'px';
+      if (this._tapzones) { this._tapzones.style.left = rw + 'px'; this._tapzones.style.top = rh + 'px'; }
       const vw = window.innerWidth - rw;
-      const vh = window.innerHeight;
+      const vh = window.innerHeight - rh;
       const s = Math.min(vw / this.designWidth, vh / this.designHeight);
       this._canvas.style.transform = `scale(${s})`;
     }
 
-    _onResize() { this._fit(); }
+    _onResize() { this._fit(); this._scheduleScaleThumbs(); }
 
     _onMouseMove() {
       // Keep overlay visible while mouse moves; hide after idle.

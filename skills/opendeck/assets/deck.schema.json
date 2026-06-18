@@ -40,6 +40,10 @@
     "version": {
       "description": "Optional deck version string.",
       "type": "string"
+    },
+    "thumbnail": {
+      "description": "Optional relative path, inside the package, to a preview image (e.g. \"thumbnail.png\"). Player apps may display it in their library. Use PNG, JPEG, WebP, or SVG.",
+      "type": "string"
     }
   }
 }

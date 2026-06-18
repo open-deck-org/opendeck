@@ -251,8 +251,14 @@
       let isNext = false, isPrev = false;
       for (const n of path) {
         if (n && n.classList) {
-          if (n.classList.contains('next')) { isNext = true; break; }
-          if (n.classList.contains('prev')) { isPrev = true; break; }
+          // The control-bar buttons (.next/.prev) and the mobile tap zones
+          // (.tapzone--fwd/.tapzone--back) share ONE step-then-slide path: a
+          // forward gesture reveals the next [data-step] and only advances the
+          // slide once the current slide's steps are exhausted. Without the
+          // tapzone classes here, taps would fall through to deck-stage and jump
+          // a whole slide, skipping the animation.
+          if (n.classList.contains('next') || n.classList.contains('tapzone--fwd')) { isNext = true; break; }
+          if (n.classList.contains('prev') || n.classList.contains('tapzone--back')) { isPrev = true; break; }
         }
       }
       if (!isNext && !isPrev) return;

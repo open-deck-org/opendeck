@@ -246,17 +246,76 @@
     };
   }
 
+  // Optional preview thumbnail, baked into the .deck and recorded as
+  // manifest.thumbnail so player libraries can show a preview. Two sources,
+  // checked in order:
+  //   1) opts.thumbnail — a "data:" URL string, or { name, data: Uint8Array }.
+  //   2) a conventional file sitting next to the deck (mirrors the audio flow):
+  //      thumbnail.png / .jpg / .jpeg / .webp / .svg.
+  // Absent → the .deck simply ships without one (the field is optional).
+  var THUMB_CANDIDATES = ["thumbnail.png", "thumbnail.jpg", "thumbnail.jpeg", "thumbnail.webp", "thumbnail.svg"];
+
+  function extForMime(mime) {
+    if (/png/i.test(mime)) return "png";
+    if (/jpe?g/i.test(mime)) return "jpg";
+    if (/webp/i.test(mime)) return "webp";
+    if (/svg/i.test(mime)) return "svg";
+    return "png";
+  }
+
+  function dataUrlToBytes(url) {
+    var comma = url.indexOf(",");
+    var head = url.slice(0, comma);
+    var raw = url.slice(comma + 1);
+    if (/;base64/i.test(head)) {
+      var bin = atob(raw);
+      var out = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out;
+    }
+    return new TextEncoder().encode(decodeURIComponent(raw));
+  }
+
+  async function collectThumbnail(opts, log) {
+    var t = opts.thumbnail;
+    if (typeof t === "string" && /^data:/i.test(t)) {
+      var mime = t.slice(5, t.indexOf(","));
+      var name = "thumbnail." + extForMime(mime);
+      log("• thumbnail from opts (data URL) → " + name);
+      return { name: name, data: dataUrlToBytes(t) };
+    }
+    if (t && t.data) {
+      log("• thumbnail from opts → " + (t.name || "thumbnail.png"));
+      return { name: t.name || "thumbnail.png", data: t.data };
+    }
+    for (var i = 0; i < THUMB_CANDIDATES.length; i++) {
+      try {
+        var r = await fetch(abs(THUMB_CANDIDATES[i]), { cache: "no-store" });
+        if (r.ok) {
+          log("• " + THUMB_CANDIDATES[i] + " found → adding to package");
+          return { name: THUMB_CANDIDATES[i], data: new Uint8Array(await r.arrayBuffer()) };
+        }
+      } catch (e) { /* keep probing */ }
+    }
+    log("• no thumbnail found (drop a thumbnail.png next to the deck to add one)");
+    return null;
+  }
+
   // Build the standalone HTML, wrap it as a .deck package, and download it.
   async function deck(opts) {
     opts = opts || {};
     var log = opts.quiet ? function () {} : function (s) { console.log("%c[deckExport]%c " + s, "color:#c75b39;font-weight:700", ""); };
     var html = await build({ quiet: opts.quiet });
     var manifest = Object.assign(deckManifest(), opts.manifest || {});
+    var thumb = await collectThumbnail(opts, log);
+    if (thumb) manifest.thumbnail = thumb.name;
     var enc = new TextEncoder();
-    var zip = zipStore([
+    var entries = [
       { name: "deck.json", data: enc.encode(JSON.stringify(manifest, null, 2)) },
       { name: "index.html", data: enc.encode(html) }
-    ]);
+    ];
+    if (thumb) entries.push({ name: thumb.name, data: thumb.data });
+    var zip = zipStore(entries);
     var blob = new Blob([zip], { type: "application/zip" });
     var a = document.createElement("a");
     a.href = URL.createObjectURL(blob);

@@ -4,7 +4,7 @@ description: Build animated, narrated HTML presentation decks — slides that re
 license: MIT
 metadata:
   author: Sinisha Djukic
-  version: 1.0.0
+  version: 1.1.0
   created: "2026-06"
 ---
 
@@ -231,8 +231,9 @@ When the user wants to present on a phone/tablet, or asks to **"export as a `.de
 
 ```
 my-talk.deck
-├── deck.json     # the manifest — see assets/deck.schema.json
-└── index.html    # the standalone export (Route A/B output) — fully self-contained
+├── deck.json       # the manifest — see assets/deck.schema.json
+├── index.html      # the standalone export (Route A/B output) — fully self-contained
+└── thumbnail.png   # optional preview image shown in the player's library
 ```
 
 Two routes, same output:
@@ -244,6 +245,8 @@ deckExport.deck()   // browser console: builds the standalone, writes deck.json,
 …or **ask the agent** to do it with file tools: produce the standalone HTML exactly as in Route A, write it as `index.html`, add a `deck.json`, and zip the two at the archive root as `<id>.deck`. Either way the result is one portable file.
 
 The `deck.json` manifest is defined by **`assets/deck.schema.json`** (JSON Schema) — read that file for the exact field set, types, patterns, and defaults. In short: only `entry` (`"index.html"`) is strictly required; `id` (the filename), `title`, `orientation` (`landscape` for these 1920×1080 decks), and optional `author`/`version` round it out. Add `"$schema": "./deck.schema.json"` to a hand-written `deck.json` for editor validation.
+
+**Optional thumbnail.** Drop a `thumbnail.png` (or `.jpg`/`.webp`/`.svg`) next to the deck before exporting and `deckExport.deck()` bakes it into the package and records `"thumbnail": "thumbnail.png"` in `deck.json`; or pass one explicitly: `deckExport.deck({ thumbnail: "data:image/png;base64,…" })`. Hand-writing the package? Add the image file at the archive root and point `thumbnail` at its relative path. Players that support it (e.g. the OpenDeck app) show the image in their library; players that don't simply ignore the field.
 
 Because the deck is the standalone bundle, **baked audio plays offline** inside the player too — it renders in a real web origin, so all animation, narration, fonts, and tooltips work exactly as in the browser.
 
