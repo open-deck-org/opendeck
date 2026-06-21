@@ -316,7 +316,7 @@
     ];
     if (thumb) entries.push({ name: thumb.name, data: thumb.data });
     var zip = zipStore(entries);
-    var blob = new Blob([zip], { type: "application/zip" });
+    var blob = new Blob([zip], { type: "application/x-deck" });
     var a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = manifest.id + ".deck";

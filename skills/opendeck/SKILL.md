@@ -4,7 +4,7 @@ description: Build animated, narrated HTML presentation decks — slides that re
 license: MIT
 metadata:
   author: Sinisha Djukic
-  version: 1.1.0
+  version: 1.1.1
   created: "2026-06"
 ---
 
@@ -227,7 +227,7 @@ Without baking audio, the export is a clean silent deck: the **Narrate + Auto-pl
 
 ### Route C — package as a portable `.deck` file
 
-When the user wants to present on a phone/tablet, or asks to **"export as a `.deck`"**, package the deck for a compatible deck player app. A `.deck` is just a Zip whose root holds:
+When the user wants to present on a phone/tablet, or asks to **"export as a `.deck`"**, package the deck for a compatible deck player app. A `.deck` is a Zip archive with MIME type `application/x-deck` whose root holds:
 
 ```
 my-talk.deck
