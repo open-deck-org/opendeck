@@ -4,7 +4,7 @@ description: Build animated, narrated HTML presentation decks — slides that re
 license: MIT
 metadata:
   author: Sinisha Djukic
-  version: 1.1.2
+  version: 1.1.3
   created: "2026-06"
 ---
 
@@ -260,3 +260,4 @@ Because the deck is the standalone bundle, **baked audio plays offline** inside 
 - **Slide count.** `slides[]` in the script should line up with the `<section>`s; extra/short entries just stay silent — fine while drafting.
 - **Don't rename the globals.** `deck-enhance.js`/`deck-narration.js` look for `window.__NARRATION` and `window.__NARRATION_AUDIO`; keep those names.
 - **Editing safety.** `deck-enhance.js` suppresses nav keys while you're typing in a field/contenteditable, so authoring text won't flip slides.
+- **Hosting & CSP.** A deck — and any standalone export — is fully inline: an inline `<style>` block, an inline `<script>`, and (on export) the whole engine inlined too. It works on any host that doesn't impose a restrictive Content-Security-Policy, which is the default for static hosting (GitHub Pages, S3, Netlify/Vercel, plain nginx) — so most self-hosting just works. If the host *does* set a CSP, the deck needs `script-src 'unsafe-inline'` and `style-src 'unsafe-inline'` (the engine uses no `eval`/`new Function`, so `'unsafe-eval'` is **not** required), plus `data:`/`blob:` for embedded fonts, images, and audio. A minimal working policy: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:`. On Cloudflare `_headers` (and Pages-style headers generally), matching rules *accumulate* rather than override — a strict global CSP plus a relaxed deck CSP emits two headers and the browser enforces the stricter intersection, which silently breaks decks. Scope CSP so exactly one rule matches the deck path.
