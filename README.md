@@ -2,7 +2,7 @@
 
 > Build **animated, narrated HTML presentation decks** with any coding agent.
 
-OpenDeck is an [Agent Skill](https://www.agensi.io/learn/agent-skills-open-standard): slides that reveal step-by-step as you click, hover tooltips, a thumbnail rail, fullscreen, print-to-PDF, and **AI voice narration** generated in-browser (ElevenLabs) that bakes into a fully offline file. Optionally package a deck as a portable `.deck` file for a compatible player app.
+OpenDeck is an [Agent Skill](https://www.agensi.io/learn/agent-skills-open-standard): slides that reveal step-by-step as you click, hover tooltips, a thumbnail rail, fullscreen, and **AI voice narration** generated in-browser (ElevenLabs) that bakes into a fully offline file. Optionally package a deck as a portable `.deck` file for a compatible player app.
 
 The skill follows the universal `SKILL.md` standard, so the **same skill folder works in Claude Code, OpenCode, Codex, Gemini CLI**, and other compatible agents.
 

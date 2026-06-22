@@ -2,7 +2,7 @@
 
 > **OpenDeck** · `opendeck` · MIT · Sinisha Djukic
 
-A reusable kit for building **animated, narrated HTML presentations**: slides that reveal step-by-step as you click, hover tooltips, a thumbnail rail, fullscreen, print-to-PDF, and **AI voice narration** with an in-page studio that generates the voiceover (ElevenLabs) and can bake it into a fully offline file.
+A reusable kit for building **animated, narrated HTML presentations**: slides that reveal step-by-step as you click, hover tooltips, a thumbnail rail, fullscreen, and **AI voice narration** with an in-page studio that generates the voiceover (ElevenLabs) and can bake it into a fully offline file.
 
 Share this folder (or the zip) with anyone. Hand it to Claude in a **blank design project** and say *"use this skill to build a narrated deck"* — `SKILL.md` tells it everything it needs.
 
@@ -16,7 +16,7 @@ opendeck/
 ├── README.md                   ← this file (for humans)
 └── assets/                     ← the shippable deck kit
     ├── starter-deck.html       ← a minimal WORKING deck — open it, copy, edit
-    ├── deck-stage.js           ← slide engine (scaling, nav, rail, notes, print)
+    ├── deck-stage.js           ← slide engine (scaling, nav, rail, notes)
     ├── deck-enhance.js         ← step reveals, step dots, tooltips, F/S keys
     ├── deck-narration.js       ← Narrate + Auto-play controls + Audio Studio
     ├── narration-script.js     ← template — write narration text here
@@ -73,4 +73,4 @@ See **`SKILL.md`** for the complete build guide.
 
 ## Changelog
 
-- **1.0.0** — Initial release. Animated, narrated HTML decks: step reveals, tooltips, thumbnail rail, fullscreen, print-to-PDF, in-browser ElevenLabs Audio Studio, offline audio baking, and `deck-export.js` — an in-browser bundler (`deckExport.standalone()`) that inlines scripts, audio, and fonts into one self-contained `.html`, plus `deckExport.deck()` to package a portable `.deck` file.
+- **1.0.0** — Initial release. Animated, narrated HTML decks: step reveals, tooltips, thumbnail rail, fullscreen, in-browser ElevenLabs Audio Studio, offline audio baking, and `deck-export.js` — an in-browser bundler (`deckExport.standalone()`) that inlines scripts, audio, and fonts into one self-contained `.html`, plus `deckExport.deck()` to package a portable `.deck` file.

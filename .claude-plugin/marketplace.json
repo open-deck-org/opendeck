@@ -9,7 +9,7 @@
     {
       "name": "opendeck",
       "source": "./",
-      "description": "Build animated, narrated HTML presentation decks — step-by-step reveals, hover tooltips, a thumbnail rail, fullscreen, print-to-PDF, and in-browser ElevenLabs voice narration that bakes into a fully offline file.",
+      "description": "Build animated, narrated HTML presentation decks — step-by-step reveals, hover tooltips, a thumbnail rail, fullscreen, and in-browser ElevenLabs voice narration that bakes into a fully offline file.",
       "license": "MIT",
       "category": "productivity",
       "keywords": [

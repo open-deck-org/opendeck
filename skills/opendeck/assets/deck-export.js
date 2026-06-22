@@ -5,7 +5,10 @@
  * self-contained .html that opens offline, on any machine, with no companion
  * files and no API key:
  *
- *   • every local <script src="…">  → inlined <script>…</script>
+ *   • every local <script src="…">   → inlined <script>…</script>
+ *   • every local stylesheet <link>  → inlined <style>, with its url() fonts
+ *                                       and images embedded as base64
+ *   • every local <img src="…">      → embedded as a base64 data URL
  *   • the baked narration audio       → inlined (auto-detected, see below)
  *   • the Google Fonts <link>         → fetched + embedded as base64 @font-face
  *
@@ -46,6 +49,23 @@
       bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
     }
     return btoa(bin);
+  }
+
+  function mimeFor(url) {
+    var ext = (url.split("?")[0].split("#")[0].split(".").pop() || "").toLowerCase();
+    return ({
+      woff2: "font/woff2", woff: "font/woff", ttf: "font/ttf", otf: "font/otf",
+      jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif",
+      webp: "image/webp", avif: "image/avif", svg: "image/svg+xml"
+    })[ext] || "application/octet-stream";
+  }
+
+  function isRemote(u) { return /^(https?:)?\/\//.test(u) || /^data:/i.test(u); }
+
+  // Fetch a same-origin asset → "data:<mime>;base64,…".
+  async function toDataUrl(url) {
+    var buf = await (await fetch(url, { cache: "no-store" })).arrayBuffer();
+    return "data:" + mimeFor(url) + ";base64," + bytesToB64(new Uint8Array(buf));
   }
 
   // Mark the output as an exported standalone, BEFORE deck-narration.js runs.
@@ -120,6 +140,57 @@
     return html;
   }
 
+  // 4) Embed same-origin url(...) assets (fonts, images) inside a CSS string.
+  async function embedCssUrls(css, baseUrl) {
+    var refs = [];
+    css.replace(/url\(\s*['"]?([^'")]+)['"]?\s*\)/g, function (_, u) { refs.push(u); return _; });
+    var seen = {};
+    for (var i = 0; i < refs.length; i++) {
+      var u = refs[i];
+      if (seen[u] || isRemote(u) || u.charAt(0) === "#") continue;
+      seen[u] = 1;
+      try { css = css.split(u).join(await toDataUrl(new URL(u, baseUrl).href)); }
+      catch (e) { /* leave the reference as-is */ }
+    }
+    return css;
+  }
+
+  // 5) Inline same-origin stylesheet <link>s as <style>, embedding their url()
+  //    fonts/images. CDN / Google-Fonts links are left for embedFonts.
+  async function inlineStylesheets(html, log) {
+    var re = /<link\b[^>]*>/gi, m, tags = [];
+    while ((m = re.exec(html)) !== null) tags.push(m[0]);
+    for (var i = 0; i < tags.length; i++) {
+      var tag = tags[i];
+      if (!/rel=["']?stylesheet/i.test(tag)) continue;
+      var hm = tag.match(/href="([^"]+)"/i);
+      if (!hm || isRemote(hm[1])) continue;
+      try {
+        var css = await embedCssUrls(await fetchText(abs(hm[1])), abs(hm[1]));
+        html = html.split(tag).join("<style>\n" + css + "\n</style>");
+        log("• inlined stylesheet " + hm[1]);
+      } catch (e) { log("• stylesheet skipped " + hm[1] + " (" + e.message + ")"); }
+    }
+    return html;
+  }
+
+  // 6) Inline same-origin <img src="…"> as base64 data URLs.
+  async function inlineImages(html, log) {
+    var re = /<img\b[^>]*\bsrc="([^"]+)"[^>]*>/gi, m, srcs = [], seen = {}, n = 0;
+    while ((m = re.exec(html)) !== null) srcs.push(m[1]);
+    for (var i = 0; i < srcs.length; i++) {
+      var src = srcs[i];
+      if (seen[src] || isRemote(src)) continue;
+      seen[src] = 1;
+      try {
+        html = html.split('src="' + src + '"').join('src="' + (await toDataUrl(abs(src))) + '"');
+        n++;
+      } catch (e) { log("• image skipped " + src + " (" + e.message + ")"); }
+    }
+    if (n) log("• embedded " + n + " image" + (n === 1 ? "" : "s"));
+    return html;
+  }
+
   async function build(opts) {
     opts = opts || {};
     var log = opts.quiet ? function () {} : function (s) { console.log("%c[deckExport]%c " + s, "color:#c75b39;font-weight:700", ""); };
@@ -127,7 +198,9 @@
     html = await bakeAudio(html, log);
     html = markExported(html);                   // hide authoring controls in the export
     html = await inlineScripts(html, log);
-    html = await embedFonts(html, log);
+    html = await inlineStylesheets(html, log);   // same-origin <link> + its url() assets
+    html = await embedFonts(html, log);          // remote Google-Fonts <link>
+    html = await inlineImages(html, log);        // same-origin <img>
     return html;
   }
 

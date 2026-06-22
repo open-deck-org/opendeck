@@ -1,16 +1,16 @@
 ---
 name: opendeck
-description: Build animated, narrated HTML presentation decks — slides that reveal step-by-step as you click, hover tooltips, a thumbnail rail, fullscreen, and print-to-PDF, plus AI voice narration generated in-browser via ElevenLabs that can be baked into a fully offline file. Use when the user wants a presentation, deck, or slides that animate step-by-step, a self-running or narrated presentation, a deck to present and export, or anything described as "click through and it talks." Can also package the deck as a portable `.deck` file (deck.json + zipped standalone HTML) for playback in a compatible deck player app.
+description: Build animated, narrated HTML presentation decks — slides that reveal step-by-step as you click, hover tooltips, a thumbnail rail, fullscreen, plus AI voice narration generated in-browser via ElevenLabs that can be baked into a fully offline file. Use when the user wants a presentation, deck, or slides that animate step-by-step, a self-running or narrated presentation, a deck to present and export, or anything described as "click through and it talks." Can also package the deck as a portable `.deck` file (deck.json + zipped standalone HTML) for playback in a compatible deck player app.
 license: MIT
 metadata:
   author: Sinisha Djukic
-  version: 1.1.4
+  version: 1.1.5
   created: "2026-06"
 ---
 
 # OpenDeck — Narrated Animated Presentations
 
-Build an HTML slide deck with **in-slide step animations, hover tooltips, a thumbnail rail, fullscreen, print-to-PDF, and AI voice narration** — including an in-page "Audio Studio" that generates the voiceover with ElevenLabs and can bake it into a fully offline file.
+Build an HTML slide deck with **in-slide step animations, hover tooltips, a thumbnail rail, fullscreen, and AI voice narration** — including an in-page "Audio Studio" that generates the voiceover with ElevenLabs and can bake it into a fully offline file.
 
 Use this skill when the user asks for: a presentation/deck/slides that animates step-by-step, a self-running or narrated presentation, a deck they can present and also export, anything describing "click through and it talks," or to **package a deck as a portable `.deck` file** for a compatible player app.
 
@@ -22,7 +22,7 @@ The shippable kit lives in this skill's **`assets/`** folder. A deck is a single
 
 | File | Role | You edit it? |
 |---|---|---|
-| `deck-stage.js` | Slide engine: auto-scaling, keyboard nav, thumbnail rail, speaker notes, print→PDF. | No — drop in as-is |
+| `deck-stage.js` | Slide engine: auto-scaling, keyboard nav, thumbnail rail, speaker notes. | No — drop in as-is |
 | `deck-enhance.js` | `data-step` reveals + step dots, `data-tip` tooltips, Fullscreen (`F`) & Slides (`S`) buttons, edit-mode guard. | No — drop in as-is |
 | `narration-script.js` | The narration **text**, one line per slide/step. | **Yes** — this is where you write narration |
 | `deck-narration.js` | Narrate + Auto-play controls (merged into the deck overlay) and the Audio Studio. | No — drop in as-is |
@@ -221,7 +221,7 @@ For a user who'd rather not involve the agent: load **`deck-export.js`** (it's o
 deckExport.standalone()      // downloads your-deck.standalone.html
 ```
 
-It does the same inlining (scripts + baked audio + fonts, with the `</script>` fix) entirely in the browser. It auto-detects `narration-audio.js` and always tries to bake fonts (falling back to the CDN link if offline). Because it `fetch()`es same-origin files, the deck must be **served over http(s)** for this route — not opened via `file://`. *Inside a Claude design project,* the project's own **"Save as standalone HTML"** export is the equivalent.
+It does the same inlining (scripts, same-origin stylesheet `<link>`s and their `url()` fonts/images, `<img>` sources, baked audio, and Google fonts — with the `</script>` fix) entirely in the browser. It auto-detects `narration-audio.js` and always tries to bake fonts (falling back to the CDN link if offline). Because it `fetch()`es same-origin files, the deck must be **served over http(s)** for this route — not opened via `file://`. *Inside a Claude design project,* the project's own **"Save as standalone HTML"** export is the equivalent.
 
 Without baking audio, the export is a clean silent deck: the **Narrate + Auto-play controls are hidden** (nothing to play), while all the animation, tooltips, and navigation still work. The clips live only in the browser that made them, so voice returns only if someone regenerates with a key (the `deckNarration.studio()` console API stays available for that).
 
