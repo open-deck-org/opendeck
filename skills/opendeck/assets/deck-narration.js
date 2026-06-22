@@ -364,8 +364,16 @@
         sr.appendChild(st);
       }
 
+      // Mark the start of the narration group so deck-stage can fold it onto
+      // a second control-bar row on narrow screens (see _updateOverlayStack /
+      // the .overlay[data-stack] rules). The break collapses to nothing until
+      // stacking is active; the divider is hidden at the head of row 2.
+      var brk = document.createElement("span");
+      brk.className = "row-break";
+      overlayEl.appendChild(brk);
+
       var div = document.createElement("span");
-      div.className = "divider";
+      div.className = "divider narr-divider";
       overlayEl.appendChild(div);
 
       if (showNarr) {

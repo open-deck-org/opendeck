@@ -198,6 +198,35 @@
       filter: blur(0);
     }
 
+    /* ── Two-row fallback (narrow screens) ───────────────────────────────
+       When the single-row bar can't sit with ~15% clear on each side, fold
+       the narration group (Narrate / Auto-play / Studio) onto a second row
+       so nothing is cramped or scrolled off. deck-narration injects a
+       .row-break before its group; _updateOverlayStack() measures the bar's
+       natural width and toggles [data-stack]. Only decks that actually have
+       narration controls (and thus a .row-break) ever stack. */
+    /* Controls keep their natural width — never squeeze a label/icon to cram
+       the row. (Without this the single row shrink-fits, which both looks
+       cramped and corrupts the width measurement that drives stacking.) */
+    .overlay > * { flex-shrink: 0; }
+    .overlay .row-break { display: none; }
+    .overlay[data-stack] {
+      flex-wrap: wrap;
+      justify-content: center;
+      row-gap: 2px;
+      border-radius: 18px;   /* pill → rounded rect once it's two rows tall */
+      overflow: visible;     /* show row 2; the nowrap scroll fallback is moot here */
+    }
+    .overlay[data-stack] .row-break {
+      display: block;
+      flex-basis: 100%;
+      width: 100%;
+      height: 0;
+      margin: 0;
+    }
+    /* A vertical divider at the head of row 2 reads as a stray tick — drop it. */
+    .overlay[data-stack] .narr-divider { display: none; }
+
     .btn {
       appearance: none;
       -webkit-appearance: none;
@@ -674,6 +703,13 @@
       window.addEventListener('mousemove', this._onMouseMove, { passive: true });
       window.addEventListener('message', this._onMessage);
       window.addEventListener('click', this._onDocClick, true);
+      // deck-enhance / deck-narration inject their buttons (and the narration
+      // group's .row-break) into the overlay asynchronously, after the initial
+      // _fit. Re-evaluate the two-row stack whenever the bar's contents change.
+      if (typeof MutationObserver !== 'undefined' && this._overlay) {
+        this._overlayObserver = new MutationObserver(() => this._scheduleOverlayStack());
+        this._overlayObserver.observe(this._overlay, { childList: true });
+      }
       // Initial collection + layout happens via slotchange, which fires on mount.
       this._enableRail();
       // Hold the stage hidden until webfonts are ready so the first visible
@@ -867,6 +903,8 @@
       if (this._tweakTimer) clearTimeout(this._tweakTimer);
       if (this._railAnimTimer) clearTimeout(this._railAnimTimer);
       if (this._scaleRaf) cancelAnimationFrame(this._scaleRaf);
+      if (this._stackRaf) cancelAnimationFrame(this._stackRaf);
+      if (this._overlayObserver) this._overlayObserver.disconnect();
       if (this._liveObserver) this._liveObserver.disconnect();
       if (this._railObserver) this._railObserver.disconnect();
       if (this._viewportObserver) this._viewportObserver.disconnect();
@@ -1280,6 +1318,51 @@
       const vh = window.innerHeight - rh;
       const s = Math.min(vw / this.designWidth, vh / this.designHeight);
       this._canvas.style.transform = `scale(${s})`;
+      this._updateOverlayStack();
+    }
+
+    /** Fold the narration group onto a second control-bar row when the
+     *  single-row bar would leave less than ~15% clear on each side of the
+     *  viewport (content > 70% of width). Only decks that injected a
+     *  .row-break — i.e. have narration controls — can stack; a shorter bar
+     *  keeps its single-row layout (with the scroll fallback for extremes).
+     *  Cheap: one scrollWidth read + an attribute toggle. */
+    _updateOverlayStack() {
+      const ov = this._overlay;
+      if (!ov || !ov.querySelector('.row-break')) {
+        if (ov) { ov.removeAttribute('data-stack'); ov.style.width = ''; }
+        return;
+      }
+      // Measure unstacked (single line, children at natural width — they don't
+      // flex-shrink). Stack only when the bar can't sit with ~15% clear each
+      // side. No paint happens between these writes, so there's no flicker
+      // even when the bar was already — and stays — stacked.
+      ov.removeAttribute('data-stack');
+      ov.style.width = '';
+      if (ov.scrollWidth <= window.innerWidth * 0.70) return;
+      // Pin the pill to the nav row's natural width so the nav controls keep
+      // one line and the narration group drops to a second row beneath them.
+      // Capped to the viewport — an over-wide nav (e.g. with a Fullscreen
+      // button on a very small phone) then wraps further, which is fine.
+      const kids = Array.from(ov.children);
+      const bi = kids.findIndex((c) => c.classList && c.classList.contains('row-break'));
+      let w = window.innerWidth - 16;
+      if (bi > 0) {
+        const navW = Math.ceil(
+          kids[bi - 1].getBoundingClientRect().right - kids[0].getBoundingClientRect().left
+        );
+        w = Math.min(navW, w);
+      }
+      ov.style.width = w + 'px';
+      ov.setAttribute('data-stack', '');
+    }
+
+    _scheduleOverlayStack() {
+      if (this._stackRaf) return;
+      this._stackRaf = requestAnimationFrame(() => {
+        this._stackRaf = null;
+        this._updateOverlayStack();
+      });
     }
 
     _onResize() { this._fit(); this._scheduleScaleThumbs(); }
