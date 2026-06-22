@@ -929,7 +929,7 @@
 
       overlay.querySelector('.prev').addEventListener('click', () => this._advance(-1, 'click'));
       overlay.querySelector('.next').addEventListener('click', () => this._advance(1, 'click'));
-      overlay.querySelector('.reset').addEventListener('click', () => this._go(0, 'click'));
+      overlay.querySelector('.reset').addEventListener('click', () => this._go(0, 'click', true));
 
       // Thumbnail rail + context menu. Thumbnails are populated in
       // _renderRail() after _collectSlides().
@@ -1377,11 +1377,11 @@
       } else if (key === 'ArrowLeft' || key === 'PageUp') {
         this._advance(-1, 'keyboard');
       } else if (key === 'Home') {
-        this._go(0, 'keyboard');
+        this._go(0, 'keyboard', true);
       } else if (key === 'End') {
         this._go(this._slides.length - 1, 'keyboard');
       } else if (key === 'r' || key === 'R') {
-        this._go(0, 'keyboard');
+        this._go(0, 'keyboard', true);
       } else if (/^[0-9]$/.test(key)) {
         // 1..9 jump to that slide; 0 jumps to 10.
         const n = key === '0' ? 9 : parseInt(key, 10) - 1;
@@ -1396,10 +1396,14 @@
       }
     }
 
-    _go(i, reason = 'api') {
+    _go(i, reason = 'api', force = false) {
       if (!this._slides.length) return;
       const clamped = Math.max(0, Math.min(this._slides.length - 1, i));
-      if (clamped === this._index) {
+      // Normally a no-op (just flash) when already on the target slide. But a
+      // reset must re-apply even then, so the broadcast re-fires and listeners
+      // (e.g. deck-enhance) zero the current slide's in-slide step reveals —
+      // otherwise "Reset" on slide 1 leaves its revealed steps showing.
+      if (clamped === this._index && !force) {
         this._flashOverlay();
         return;
       }
@@ -1826,7 +1830,7 @@
     goTo(i) { this._go(i, 'api'); }
     next() { this._advance(1, 'api'); }
     prev() { this._advance(-1, 'api'); }
-    reset() { this._go(0, 'api'); }
+    reset() { this._go(0, 'api', true); }
   }
 
   if (!customElements.get('deck-stage')) {
