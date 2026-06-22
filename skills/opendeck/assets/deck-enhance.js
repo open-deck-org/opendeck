@@ -194,6 +194,15 @@
     } catch (err) { /* fullscreen denied (e.g. iframe perms) — silent */ }
   }
 
+  // The Fullscreen API isn't available for arbitrary elements on iOS (every
+  // iOS browser is WebKit), so the button would be a dead control there. Detect
+  // real support and omit it when missing — which also frees bar width.
+  const fsDocEl = document.documentElement;
+  const FS_SUPPORTED = !!(
+    (document.fullscreenEnabled || document.webkitFullscreenEnabled) &&
+    (fsDocEl.requestFullscreen || fsDocEl.webkitRequestFullscreen)
+  );
+
   // ---- Thumbnail rail toggle ------------------------------------------
   let railVisible = true;
   try {
@@ -210,7 +219,9 @@
     if (!sr) return;
     const reset = sr.querySelector('.btn.reset');
     if (!reset) return;
-    if (sr.querySelector('.btn.fullscreen')) return;
+    // Guard on the rail button (always inserted) so a missing Fullscreen button
+    // on unsupported platforms doesn't defeat the re-entry check.
+    if (sr.querySelector('.btn.rail-toggle')) return;
 
     const mkDivider = () => { const d = document.createElement('span'); d.className = 'divider'; return d; };
     const mkBtn = (label, kbd, title, handler, extraClass) => {
@@ -224,13 +235,20 @@
       return b;
     };
 
-    const fsBtn = mkBtn('Fullscreen', 'F', 'Fullscreen (F)', toggleFullscreen, 'fullscreen');
-    const railBtn = mkBtn('Slides', 'S', 'Toggle slide list (S)', toggleRail, 'rail-toggle');
+    // Reset │ [Fullscreen │] Slides — Fullscreen is omitted where the API
+    // isn't usable (e.g. iOS), which also keeps the bar from overflowing.
+    const nodes = [mkDivider()];
+    if (FS_SUPPORTED) {
+      nodes.push(mkBtn('Fullscreen', 'F', 'Fullscreen (F)', toggleFullscreen, 'fullscreen'));
+      nodes.push(mkDivider());
+    }
+    nodes.push(mkBtn('Slides', 'S', 'Toggle slide list (S)', toggleRail, 'rail-toggle'));
 
-    reset.parentNode.insertBefore(mkDivider(), reset.nextSibling);
-    reset.parentNode.insertBefore(fsBtn, reset.nextSibling.nextSibling);
-    reset.parentNode.insertBefore(mkDivider(), fsBtn.nextSibling);
-    reset.parentNode.insertBefore(railBtn, fsBtn.nextSibling.nextSibling);
+    let after = reset;
+    for (const n of nodes) {
+      reset.parentNode.insertBefore(n, after.nextSibling);
+      after = n;
+    }
   }
 
   let injectTries = 0;

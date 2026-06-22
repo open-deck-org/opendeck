@@ -183,7 +183,14 @@
       transform-origin: center bottom;
       z-index: 2147483000;
       user-select: none;
+      /* Never exceed the viewport on narrow screens; scroll within as a last
+         resort (the touch tweaks below usually make scrolling unnecessary). */
+      max-width: calc(100vw - 16px);
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: none;
     }
+    .overlay::-webkit-scrollbar { display: none; }
     .overlay[data-visible] {
       opacity: 1;
       pointer-events: auto;
@@ -238,6 +245,13 @@
       color: rgba(255,255,255,0.88);
       background: rgba(255,255,255,0.12);
       border-radius: 4px;
+    }
+
+    /* Touch devices have no keyboard — drop the shortcut chips. This recovers
+       the width that pushed the control bar off-screen on phones. */
+    @media (pointer: coarse) {
+      .overlay .kbd { display: none; }
+      .btn.reset { padding: 0 12px; }
     }
 
     .count {
