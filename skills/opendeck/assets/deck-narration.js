@@ -743,7 +743,7 @@
       // this page's environment blocks the ElevenLabs call).
       var webLink = $("button", { type: "button", text: "On a phone, or blocked here? Generate on the web ↗",
         style: "margin:14px 0 0;border:0;background:transparent;cursor:pointer;font-family:" + FONT + ";font-size:12px;color:" + BLUE + ";text-decoration:underline;padding:2px 0;" });
-      webLink.addEventListener("click", function () { enterWebHandoff(); });
+      webLink.addEventListener("click", function () { enterWebHandoff("manual"); });
       step2.appendChild(webLink);
 
       // ========== STEP 3 — Download ==========
@@ -784,6 +784,11 @@
       // ===== WEB-HANDOFF STEPS (shown only after the hand-off) =====
       // ① Generate on the web — launch the hosted Studio, narration pre-loaded.
       var webStep1 = $("div", { style: "display:none;" });
+      // Shown only when we auto-route here because the environment is blocked
+      // (the preflight probe, or a failed generate) — not when the user chose it.
+      var webBanner = $("div", { style: "display:none;font-size:12.5px;color:#8A5A00;background:#FFF6E5;border:1px solid #F2DCA8;border-radius:8px;padding:8px 10px;margin:0 0 14px;line-height:1.45;",
+        text: "This environment can’t reach the audio service (e.g. the Claude web app preview), so we’ve set you up to generate on the web instead." });
+      webStep1.appendChild(webBanner);
       webStep1.appendChild($("p", { style: "margin:0 0 14px;font-size:13.5px;line-height:1.5;color:" + GREY + ";",
         html: "Your deck’s narration is loaded into the <b>OpenDeck Audio Studio</b> on the web. Open it, enter your ElevenLabs key, generate, then download <code>narration-audio.js</code>. Your key stays in that browser — it’s never sent to us." }));
       var webLinkInput = $("input", { type: "text", readonly: "readonly", value: webStudioLink(),
@@ -866,11 +871,14 @@
         nextBtn.textContent = n === activeSteps.length ? "Done" : "Next →";
         panel.__refresh();
       }
-      function enterWebHandoff() { activeSteps = STEPS_WEB; activeEls = webEls; goStep(1); }
+      function enterWebHandoff(reason) {
+        webBanner.style.display = reason === "blocked" ? "block" : "none";
+        activeSteps = STEPS_WEB; activeEls = webEls; goStep(1);
+      }
       function exitWebHandoff() { activeSteps = STEPS_LOCAL; activeEls = localEls; goStep(1); }
-      // Expose the switch so a blocked ElevenLabs call (in generateAll) can flip
-      // the live wizard into web mode instead of popping a separate modal.
-      switchToWebHandoff = enterWebHandoff;
+      // Expose the switch so a blocked connection (the preflight probe, or a
+      // failed generate) can flip the live wizard into web mode.
+      switchToWebHandoff = function () { enterWebHandoff("blocked"); };
       webBack.addEventListener("click", exitWebHandoff);
 
       backBtn.addEventListener("click", function () { if (step > 1) goStep(step - 1); });
@@ -903,12 +911,40 @@
       // Open on the most useful step: all clips done → Download; some → Generate; none → Connect.
       var have = clipsCount();
       goStep(have > 0 && have >= totalCues ? 3 : (have > 0 ? 2 : 1));
+
+      // Preflight: detect a blocked environment up front so the user lands on
+      // the right path instead of switching mid-run. A CSP block fails fast
+      // (no network round-trip), so this resolves near-instantly when blocked
+      // and the wizard opens straight into the web path; when reachable it stays
+      // local. Only when nothing's been generated yet and they're still on the
+      // local path (haven't navigated or chosen the web route themselves).
+      if (have === 0) {
+        probeConnectivity().then(function (r) {
+          if (r === "blocked" && activeSteps === STEPS_LOCAL && clipsCount() === 0) enterWebHandoff("blocked");
+        });
+      }
     }
     function refreshStudio() { if (overlay && overlay.firstChild && overlay.firstChild.__refresh) overlay.firstChild.__refresh(); }
 
     // ---- ElevenLabs generation -----------------------------------------
     function ttsURL(voice) {
       return "https://api.elevenlabs.io/v1/text-to-speech/" + encodeURIComponent(voice) + "?output_format=mp3_44100_128";
+    }
+    // Keyless reachability probe. A no-cors request rejects only when the
+    // connection itself is refused (a CSP block, or offline) — never on auth or
+    // CORS, since an opaque response resolves regardless. So a rejection means
+    // "can't reach ElevenLabs from here." A CSP block fails fast (no network),
+    // so the blocked case resolves almost immediately; the reachable case costs
+    // one cheap GET and sends no key. Resolves "ok" | "blocked" | "unknown".
+    function probeConnectivity() {
+      return new Promise(function (resolve) {
+        var settled = false, finish = function (v) { if (!settled) { settled = true; resolve(v); } };
+        var t = setTimeout(function () { finish("unknown"); }, 2500);
+        try {
+          fetch("https://api.elevenlabs.io/v1/models", { method: "GET", mode: "no-cors", cache: "no-store" })
+            .then(function () { clearTimeout(t); finish("ok"); }, function () { clearTimeout(t); finish("blocked"); });
+        } catch (e) { clearTimeout(t); finish("blocked"); }
+      });
     }
     function generateAll(key, voice, force, setStatus, setCount, genBtn, onDone) {
       var cues = allCues();
