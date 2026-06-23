@@ -4,7 +4,7 @@ description: Build animated, narrated HTML presentation decks — slides that re
 license: MIT
 metadata:
   author: Sinisha Djukic
-  version: 1.1.9
+  version: 1.2.0
   created: "2026-06"
 ---
 
@@ -29,6 +29,7 @@ The shippable kit lives in this skill's **`assets/`** folder. A deck is a single
 | `narration-audio.js` | **Generated**, not shipped. Holds the audio clips as base64 so narration plays offline. Created by the Studio's "Download audio". | No — produced by the user |
 | `deck-export.js` | **In-browser bundler**: `deckExport.preview()` builds a single self-contained file that **keeps the Studio**; `deckExport.publish()` builds the final share-ready file (Studio removed, audio baked); `deckExport.deck()` wraps a published build as a portable `.deck` package. Plain browser JS — no build step. | No — drop in as-is |
 | `build-standalone.mjs` | **Headless bundler** — the same job from disk with no browser/server: `node build-standalone.mjs [deck.html] [--preview]`. This is how **you (the agent)** bundle, anywhere the files sit together (the Claude web app code sandbox, a local checkout). | No — run it |
+| `make-studio-link.mjs` | Prints a link to the **hosted Audio Studio** (`open-deck.org/studio`) with the deck's narration pre-loaded — for generating audio when the deck preview's CSP blocks ElevenLabs (the Claude web app). `node make-studio-link.mjs [narration-script.js]`. | No — run it |
 
 `deck-animation.css` is the **required CSS** for reveals/dots/tooltips — paste it into the deck's `<style>` (the starter deck already has it inline).
 
@@ -100,12 +101,12 @@ So when you're building in a single-file-preview environment, don't hand over th
 
 In the Claude web app the files you write *do* sit together on the code-execution sandbox's filesystem, so `build-standalone.mjs` runs there directly. (`deck-export.js`'s in-browser `deckExport.preview()`/`.publish()` can't run in that preview — it has no http server to fetch siblings from — so prefer the headless bundler here.) See **Step 6** for the full bundling reference.
 
-> **⚠ Narration can't be *generated* inside the web app preview.** The artifact preview's Content-Security-Policy blocks the outbound connection to ElevenLabs, so clicking **Generate** in the Studio fails there (the Studio detects this and says so). Generation needs a browser whose CSP isn't locked down — i.e. **outside the sandbox**. Set this expectation up front, then route around it:
-> 1. Build a **preview** (keeps the Studio) and have the user **open it in a normal browser** — download the preview file and open it locally, or open it on any host you control. *Quick thing to try first: Claude's "open in new tab" — it may or may not carry the same CSP, so it's worth one attempt before downloading.*
-> 2. In that real browser the Studio's **Generate → Download audio** works normally (the key stays in their browser). They get `narration-audio.js`.
-> 3. They hand `narration-audio.js` back to you; drop it next to the deck and **publish**.
+> **⚠ Narration can't be *generated* inside the web app preview** — but there's a clean path. The artifact preview's Content-Security-Policy blocks the outbound connection to ElevenLabs, so clicking **Generate** in the in-deck Studio fails there (it detects this and says so). Generation needs a browser whose CSP allows the call. Route the user to the **hosted Audio Studio**, which is served from a domain whose CSP permits it:
+> 1. Generate a pre-loaded link: `node make-studio-link.mjs narration-script.js`. It prints a `https://open-deck.org/studio/#…` URL with the deck's narration encoded in the `#fragment` (which never reaches the server). Hand that link to the user.
+> 2. The user opens it **in a normal browser** (works on desktop *and* mobile), pastes their ElevenLabs key + Voice ID, clicks **Generate**, then **Download narration-audio.js**. Their key stays in their browser; the deck never leaves yours.
+> 3. They send `narration-audio.js` back to you (drop it into the chat). Place it next to the deck and **publish**.
 >
-> Don't try to generate audio agent-side from the deck's key — the key is meant to never leave the user's browser, and the code sandbox's network egress is restricted anyway.
+> The hosted Studio also accepts a pasted `narration-script.js` if the link is ever too long or unavailable (`make-studio-link.mjs` prints the paste-fallback JSON too). Don't try to generate audio agent-side from the deck's key — the key is meant to never leave the user's browser, and the sandbox's network egress is restricted anyway. *(If you'd rather not use the hosted page at all, the fallback still works: have the user open the **preview** file in their own browser and use its in-deck Studio there.)*
 
 ---
 
