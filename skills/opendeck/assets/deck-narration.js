@@ -631,6 +631,9 @@
     }
 
     var overlay = null;
+    // Set when the wizard is built; lets a blocked ElevenLabs call switch the
+    // live wizard into the web-handoff path (falls back to the modal if unset).
+    var switchToWebHandoff = null;
     function openStudio() {
       if (overlay) { overlay.style.display = "flex"; refreshStudio(); return; }
       overlay = $("div", {
@@ -653,8 +656,15 @@
         (function () { var x = $("button", { type: "button", title: "Close", text: "✕", style: "border:0;background:transparent;font-size:18px;cursor:pointer;color:" + GREY + ";padding:4px 6px;" }); x.addEventListener("click", function () { overlay.style.display = "none"; }); return x; })()
       ]));
 
-      // ---- stepper (numbered dots + a caption, so it stays compact at 5 steps) ----
-      var STEPS = ["Connect", "Generate", "Download", "Place", "Publish"];
+      // ---- stepper (numbered dots + a caption, so it stays compact) ----
+      // Two modes. The default "local" path generates in this browser. When the
+      // user hands off to the hosted Studio — they click the web link, or the
+      // ElevenLabs call is blocked here (e.g. the Claude web app preview) — the
+      // wizard switches to the "web" path: generate on open-deck.org/studio,
+      // bring the file back to the chat, and let the agent publish.
+      var STEPS_LOCAL = ["Connect", "Generate", "Download", "Place", "Publish"];
+      var STEPS_WEB = ["Generate on the web", "Bring it back", "Publish"];
+      var activeSteps = STEPS_LOCAL;
       var stepper = $("div", { style: "margin-bottom:18px;" });
       var dotsRow = $("div", { style: "display:flex;align-items:center;gap:4px;" });
       var stepCaption = $("div", { style: "font-size:12px;color:" + GREY + ";margin-top:9px;" });
@@ -662,13 +672,13 @@
       panel.appendChild(stepper);
       function renderStepper(n) {
         dotsRow.innerHTML = "";
-        STEPS.forEach(function (label, idx) {
+        activeSteps.forEach(function (label, idx) {
           var num = idx + 1, state = num < n ? "done" : (num === n ? "current" : "todo");
           dotsRow.appendChild($("div", { text: state === "done" ? "✓" : String(num),
             style: "flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:" + (state === "todo" ? "#EAECEF" : BLUE) + ";color:" + (state === "todo" ? GREY : "#fff") + ";font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;" }));
-          if (idx < STEPS.length - 1) dotsRow.appendChild($("div", { style: "flex:1;height:2px;border-radius:2px;background:" + (num < n ? BLUE : LINE) + ";" }));
+          if (idx < activeSteps.length - 1) dotsRow.appendChild($("div", { style: "flex:1;height:2px;border-radius:2px;background:" + (num < n ? BLUE : LINE) + ";" }));
         });
-        stepCaption.innerHTML = "<b style='color:" + INK + ";'>" + STEPS[n - 1] + "</b> · step " + n + " of " + STEPS.length;
+        stepCaption.innerHTML = "<b style='color:" + INK + ";'>" + activeSteps[n - 1] + "</b> · step " + n + " of " + activeSteps.length;
       }
 
       // ---- shared field helpers ----
@@ -733,7 +743,7 @@
       // this page's environment blocks the ElevenLabs call).
       var webLink = $("button", { type: "button", text: "On a phone, or blocked here? Generate on the web ↗",
         style: "margin:14px 0 0;border:0;background:transparent;cursor:pointer;font-family:" + FONT + ";font-size:12px;color:" + BLUE + ";text-decoration:underline;padding:2px 0;" });
-      webLink.addEventListener("click", openWebStudio);
+      webLink.addEventListener("click", function () { enterWebHandoff(); });
       step2.appendChild(webLink);
 
       // ========== STEP 3 — Download ==========
@@ -771,9 +781,52 @@
       step5.appendChild($("div", { style: "margin-top:10px;color:" + GREY + ";font-size:12px;line-height:1.45;",
         text: "It bakes the audio and locks everything into one offline file — no setup needed. (To preview while you tune it, ask for a preview instead — that keeps the Studio.)" }));
 
+      // ===== WEB-HANDOFF STEPS (shown only after the hand-off) =====
+      // ① Generate on the web — launch the hosted Studio, narration pre-loaded.
+      var webStep1 = $("div", { style: "display:none;" });
+      webStep1.appendChild($("p", { style: "margin:0 0 14px;font-size:13.5px;line-height:1.5;color:" + GREY + ";",
+        html: "Your deck’s narration is loaded into the <b>OpenDeck Audio Studio</b> on the web. Open it, enter your ElevenLabs key, generate, then download <code>narration-audio.js</code>. Your key stays in that browser — it’s never sent to us." }));
+      var webLinkInput = $("input", { type: "text", readonly: "readonly", value: webStudioLink(),
+        style: "width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid " + LINE + ";border-radius:8px;font-family:" + FONT + ";font-size:12px;color:" + INK + ";background:#F7F9FB;" });
+      webLinkInput.addEventListener("focus", function () { this.select(); });
+      webStep1.appendChild(webLinkInput);
+      var webRow = $("div", { style: "display:flex;gap:8px;margin-top:12px;align-items:center;" });
+      var webCopy = btn("Copy link");
+      webCopy.addEventListener("click", function () {
+        var link = webLinkInput.value;
+        var done = function () { webCopy.textContent = "Copied"; setTimeout(function () { webCopy.textContent = "Copy link"; }, 1600); };
+        if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(link).then(done, function () { selectCopy(webLinkInput, done); }); }
+        else selectCopy(webLinkInput, done);
+      });
+      var webOpen = $("a", { href: webLinkInput.value, target: "_blank", rel: "noopener", text: "Open Studio ↗",
+        style: "border:0;background:" + BLUE + ";color:#fff;text-decoration:none;cursor:pointer;font-family:" + FONT + ";font-size:13px;font-weight:600;padding:9px 14px;border-radius:8px;" });
+      webRow.appendChild(webCopy); webRow.appendChild(webOpen);
+      webStep1.appendChild(webRow);
+      var webBack = $("button", { type: "button", text: "← Generate in this browser instead",
+        style: "margin:16px 0 0;border:0;background:transparent;cursor:pointer;font-family:" + FONT + ";font-size:12px;color:" + GREY + ";text-decoration:underline;padding:2px 0;" });
+      webStep1.appendChild(webBack);
+
+      // ② Bring it back — hand the downloaded file to the agent (no folder here).
+      var webStep2 = $("div", { style: "display:none;" });
+      webStep2.appendChild($("p", { style: "margin:0 0 14px;font-size:13.5px;line-height:1.5;color:" + INK + ";",
+        text: "Got narration-audio.js from the web Studio? Bring it back to your agent." }));
+      webStep2.appendChild($("div", { style: "padding:16px;background:#F2F6FA;border:1px solid " + LINE + ";border-radius:10px;font-size:13.5px;line-height:1.55;color:" + INK + ";",
+        html: "Drag <code>narration-audio.js</code> into your <b>chat with the agent</b> (it’s in your device’s Downloads). No need to place it yourself — the agent puts it next to the deck." }));
+
+      // ③ Publish — same ask as local, framed as a hand-over.
+      var webStep3 = $("div", { style: "display:none;" });
+      webStep3.appendChild($("p", { style: "margin:0 0 14px;font-size:13.5px;line-height:1.5;color:" + INK + ";",
+        text: "Last step — let your agent bake the audio in." }));
+      webStep3.appendChild($("div", { style: "margin:0 0 6px;color:" + GREY + ";font-size:12.5px;", text: "Tell your AI agent:" }));
+      webStep3.appendChild($("div", { style: "background:#F2F6FA;border:1px solid " + LINE + ";border-radius:8px;padding:12px 14px;font-size:14px;font-weight:600;color:" + INK + ";",
+        text: "“Integrate this narration audio and publish the deck as a standalone file”" }));
+      webStep3.appendChild($("div", { style: "margin-top:10px;color:" + GREY + ";font-size:12px;line-height:1.45;",
+        text: "It places the file, bakes the audio, and locks everything into one offline file you can share — no setup needed." }));
+
       var stepBody = $("div");
       stepBody.appendChild(step1); stepBody.appendChild(step2); stepBody.appendChild(step3);
       stepBody.appendChild(step4); stepBody.appendChild(step5);
+      stepBody.appendChild(webStep1); stepBody.appendChild(webStep2); stepBody.appendChild(webStep3);
       panel.appendChild(stepBody);
 
       // ---- footer nav ----
@@ -800,27 +853,36 @@
         Array.prototype.forEach.call(panel.querySelectorAll(".narr-cachewarn"), function (w) { w.style.display = cacheBlocked ? "block" : "none"; });
       };
 
-      var stepEls = [step1, step2, step3, step4, step5];
+      var localEls = [step1, step2, step3, step4, step5];
+      var webEls = [webStep1, webStep2, webStep3];
+      var activeEls = localEls;
       var step = 1;
       function goStep(n) {
         step = n;
-        stepEls.forEach(function (el, idx) { el.style.display = (idx + 1 === n) ? "block" : "none"; });
+        localEls.concat(webEls).forEach(function (el) { el.style.display = "none"; });
+        activeEls[n - 1].style.display = "block";
         renderStepper(n);
         backBtn.style.visibility = n === 1 ? "hidden" : "visible";
-        nextBtn.textContent = n === STEPS.length ? "Done" : "Next →";
+        nextBtn.textContent = n === activeSteps.length ? "Done" : "Next →";
         panel.__refresh();
       }
+      function enterWebHandoff() { activeSteps = STEPS_WEB; activeEls = webEls; goStep(1); }
+      function exitWebHandoff() { activeSteps = STEPS_LOCAL; activeEls = localEls; goStep(1); }
+      // Expose the switch so a blocked ElevenLabs call (in generateAll) can flip
+      // the live wizard into web mode instead of popping a separate modal.
+      switchToWebHandoff = enterWebHandoff;
+      webBack.addEventListener("click", exitWebHandoff);
 
       backBtn.addEventListener("click", function () { if (step > 1) goStep(step - 1); });
       nextBtn.addEventListener("click", function () {
-        if (step === 1) {
+        if (activeSteps === STEPS_LOCAL && step === 1) {
           var key = keyInput.value.trim(), voice = voiceInput.value.trim();
           if (!key) { step1err.textContent = "Enter your ElevenLabs API key."; keyInput.focus(); return; }
           if (!voice) { step1err.textContent = "Enter a voice ID."; voiceInput.focus(); return; }
           step1err.textContent = "";
           try { if (remember.checked) { sessionStorage.setItem(SS_KEY, key); sessionStorage.setItem(SS_VOICE, voice); } else { sessionStorage.removeItem(SS_KEY); } } catch (e) {}
           goStep(2);
-        } else if (step < STEPS.length) { goStep(step + 1); }
+        } else if (step < activeSteps.length) { goStep(step + 1); }
         else { overlay.style.display = "none"; }
       });
 
@@ -892,9 +954,9 @@
           // Stop and say so plainly rather than failing every clip identically.
           if (!/^HTTP \d/.test(msg) && i === 0) {
             genBtn.disabled = false; genBtn.style.opacity = "1"; genBtn.textContent = "Generate narration";
-            setStatus("Can’t reach the audio service from here — this environment blocks it (e.g. the Claude web app preview). Opening the web Studio, where it works…");
+            setStatus("Can’t reach the audio service from here — this environment blocks it (e.g. the Claude web app preview). Switching to the web hand-off, where it works…");
             if (onDone) onDone(todo.length);
-            openWebStudio();
+            if (switchToWebHandoff) switchToWebHandoff(); else openWebStudio();
             return;
           }
           failed++; i++; setCount();

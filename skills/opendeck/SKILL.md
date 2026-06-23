@@ -4,7 +4,7 @@ description: Build animated, narrated HTML presentation decks — slides that re
 license: MIT
 metadata:
   author: Sinisha Djukic
-  version: 1.2.1
+  version: 1.2.2
   created: "2026-06"
 ---
 
@@ -106,7 +106,7 @@ In the Claude web app the files you write *do* sit together on the code-executio
 > 2. The user opens it **in a normal browser** (works on desktop *and* mobile), pastes their ElevenLabs key + Voice ID, clicks **Generate**, then **Download narration-audio.js**. Their key stays in their browser; the deck never leaves yours.
 > 3. They send `narration-audio.js` back to you (drop it into the chat). Place it next to the deck and **publish**.
 >
-> The in-deck Studio can also self-serve this: its **Audio studio → Generate** step has a "Generate on the web" link that builds the same hosted-Studio URL, and if a user clicks **Generate** somewhere the connection is blocked it opens that link automatically. So `make-studio-link.mjs` is for when *you* want to hand over the link directly; the user can otherwise reach it from the deck.
+> The in-deck Studio can also self-serve this: its **Audio studio → Generate** step has a "Generate on the web" link that builds the same hosted-Studio URL, and if a user clicks **Generate** somewhere the connection is blocked it switches automatically. Either way the wizard **re-paths its remaining steps** to match the hand-off — generate on the web, then **bring `narration-audio.js` back into the chat** (a web-app user has no folder to place it in) and ask you to publish — so the on-screen instructions stay correct for that route. So `make-studio-link.mjs` is for when *you* want to hand over the link directly; the user can otherwise reach it from the deck.
 >
 > The hosted Studio also accepts a pasted `narration-script.js` if the link is ever too long or unavailable (`make-studio-link.mjs` prints the paste-fallback JSON too). Don't try to generate audio agent-side from the deck's key — the key is meant to never leave the user's browser, and the sandbox's network egress is restricted anyway. *(If you'd rather not use the hosted page at all, the fallback still works: have the user open the **preview** file in their own browser and use its in-deck Studio there.)*
 
@@ -180,7 +180,7 @@ If the user wants you to draft the script, write it from their instructions, kee
 Audio is generated **in the browser** so the ElevenLabs key never leaves the user's machine and is never baked into a file.
 
 While authoring, the control bar shows a blue **Studio** button (a different colour from the neutral playback controls, so it reads as a build-time tool). It opens a menu of authoring actions:
-- **Audio studio** — a 5-step wizard: **① Connect** (API key + Voice ID) → **② Generate** (one clip per step, progress bar) → **③ Download** (saves `narration-audio.js`) → **④ Place** (move that file next to the deck) → **⑤ Publish** (tells the user to ask their AI agent: *"Publish this presentation as a standalone file."*). The publish step deliberately promotes only the agent path.
+- **Audio studio** — a 5-step wizard: **① Connect** (API key + Voice ID) → **② Generate** (one clip per step, progress bar) → **③ Download** (saves `narration-audio.js`) → **④ Place** (move that file next to the deck) → **⑤ Publish** (tells the user to ask their AI agent: *"Publish this presentation as a standalone file."*). The publish step deliberately promotes only the agent path. **The wizard branches** when the user hands off to the hosted Studio (clicks "Generate on the web" in ②, or the ElevenLabs call is blocked here): it collapses to a 3-step web path — **① Generate on the web** (opens `open-deck.org/studio` with the narration pre-loaded) → **② Bring it back** (attach `narration-audio.js` into the chat — *not* place it in a folder, since a web-app user has none) → **③ Publish** (*"Integrate this narration audio and publish the deck as a standalone file"*). A "← Generate in this browser instead" link returns to the 5-step path.
 - **Cue overview** — a checklist of every step showing which have narration text and which have audio, to spot gaps before publishing.
 - **Build preview** — runs the in-browser bundler to make a single file that *keeps* the Studio (power-user shortcut for previewing while you author).
 - **Publish standalone** — runs the in-browser bundler for the final share-ready file (Studio removed, audio baked).
