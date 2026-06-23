@@ -4,7 +4,7 @@ description: Build animated, narrated HTML presentation decks — slides that re
 license: MIT
 metadata:
   author: Sinisha Djukic
-  version: 1.2.0
+  version: 1.2.1
   created: "2026-06"
 ---
 
@@ -105,6 +105,8 @@ In the Claude web app the files you write *do* sit together on the code-executio
 > 1. Generate a pre-loaded link: `node make-studio-link.mjs narration-script.js`. It prints a `https://open-deck.org/studio/#…` URL with the deck's narration encoded in the `#fragment` (which never reaches the server). Hand that link to the user.
 > 2. The user opens it **in a normal browser** (works on desktop *and* mobile), pastes their ElevenLabs key + Voice ID, clicks **Generate**, then **Download narration-audio.js**. Their key stays in their browser; the deck never leaves yours.
 > 3. They send `narration-audio.js` back to you (drop it into the chat). Place it next to the deck and **publish**.
+>
+> The in-deck Studio can also self-serve this: its **Audio studio → Generate** step has a "Generate on the web" link that builds the same hosted-Studio URL, and if a user clicks **Generate** somewhere the connection is blocked it opens that link automatically. So `make-studio-link.mjs` is for when *you* want to hand over the link directly; the user can otherwise reach it from the deck.
 >
 > The hosted Studio also accepts a pasted `narration-script.js` if the link is ever too long or unavailable (`make-studio-link.mjs` prints the paste-fallback JSON too). Don't try to generate audio agent-side from the deck's key — the key is meant to never leave the user's browser, and the sandbox's network egress is restricted anyway. *(If you'd rather not use the hosted page at all, the fallback still works: have the user open the **preview** file in their own browser and use its in-deck Studio there.)*
 

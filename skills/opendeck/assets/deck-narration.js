@@ -585,6 +585,51 @@
     // =====================================================================
     var BLUE = "#007BC0", BLUE_D = "#00629A", INK = "#2E3033", GREY = "#71767C", LINE = "#E0E2E5";
     var FONT = 'system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif';
+
+    // Hosted Audio Studio — for generating audio when THIS page can't reach
+    // ElevenLabs (e.g. the Claude web app preview's CSP refuses it), or simply
+    // from a phone. We build a link to open-deck.org/studio with this deck's
+    // narration encoded in the URL #fragment (never sent to the server),
+    // mirroring make-studio-link.mjs's encoding so it decodes there identically.
+    var WEB_STUDIO = "https://open-deck.org/studio/";
+    function webStudioLink() {
+      var payload = {
+        voiceId: SCRIPT.voiceId || "",
+        modelId: SCRIPT.modelId || "eleven_multilingual_v2",
+        slides: (SCRIPT.slides || []).map(function (s) {
+          return { lines: (s.lines || []).map(function (l) { return l == null ? "" : String(l); }) };
+        })
+      };
+      var b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+      return WEB_STUDIO + "#" + b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+    function selectCopy(input, onDone) {
+      try { input.focus(); input.select(); if (document.execCommand("copy")) { onDone(); return; } } catch (e) {}
+    }
+    function openWebStudio() {
+      var link = webStudioLink();
+      var m = modal(456);
+      m.panel.appendChild($("div", { style: "font-size:16px;font-weight:700;color:" + INK + ";margin-bottom:8px;", text: "Generate on the web" }));
+      m.panel.appendChild($("div", { style: "font-size:13px;color:" + INK + ";line-height:1.5;",
+        text: "Opens the OpenDeck Audio Studio with this deck’s narration loaded. Enter your ElevenLabs key there, generate, and download narration-audio.js — then bring it back to bake in. Handy on a phone, or when this page can’t reach ElevenLabs." }));
+      var input = $("input", { type: "text", readonly: "readonly", value: link,
+        style: "width:100%;box-sizing:border-box;margin-top:14px;padding:9px 11px;border:1px solid " + LINE + ";border-radius:8px;font-family:" + FONT + ";font-size:12px;color:" + INK + ";background:#F7F9FB;" });
+      input.addEventListener("focus", function () { this.select(); });
+      m.panel.appendChild(input);
+      var row = $("div", { style: "display:flex;gap:8px;margin-top:14px;justify-content:flex-end;align-items:center;flex-wrap:wrap;" });
+      var close = btn("Close"); close.addEventListener("click", function () { m.back.remove(); });
+      var copy = btn("Copy link");
+      copy.addEventListener("click", function () {
+        var done = function () { copy.textContent = "Copied"; setTimeout(function () { copy.textContent = "Copy link"; }, 1600); };
+        if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(link).then(done, function () { selectCopy(input, done); }); }
+        else selectCopy(input, done);
+      });
+      var openA = $("a", { href: link, target: "_blank", rel: "noopener", text: "Open ↗",
+        style: "border:0;background:" + BLUE + ";color:#fff;text-decoration:none;cursor:pointer;font-family:" + FONT + ";font-size:13px;font-weight:600;padding:9px 14px;border-radius:8px;" });
+      row.appendChild(close); row.appendChild(copy); row.appendChild(openA);
+      m.panel.appendChild(row);
+    }
+
     var overlay = null;
     function openStudio() {
       if (overlay) { overlay.style.display = "flex"; refreshStudio(); return; }
@@ -684,6 +729,12 @@
         forceChk, $("span", { text: "Re-generate clips that already exist" })
       ]));
       step2.appendChild(cacheWarnEl());
+      // Escape hatch: generate on the hosted Studio instead (a phone, or when
+      // this page's environment blocks the ElevenLabs call).
+      var webLink = $("button", { type: "button", text: "On a phone, or blocked here? Generate on the web ↗",
+        style: "margin:14px 0 0;border:0;background:transparent;cursor:pointer;font-family:" + FONT + ";font-size:12px;color:" + BLUE + ";text-decoration:underline;padding:2px 0;" });
+      webLink.addEventListener("click", openWebStudio);
+      step2.appendChild(webLink);
 
       // ========== STEP 3 — Download ==========
       var step3 = $("div", { style: "display:none;" });
@@ -841,8 +892,9 @@
           // Stop and say so plainly rather than failing every clip identically.
           if (!/^HTTP \d/.test(msg) && i === 0) {
             genBtn.disabled = false; genBtn.style.opacity = "1"; genBtn.textContent = "Generate narration";
-            setStatus("Can’t reach the audio service from here — this environment blocks the connection (e.g. the Claude web app preview). Open this deck in a normal browser tab, or locally, to generate; then publish.");
+            setStatus("Can’t reach the audio service from here — this environment blocks it (e.g. the Claude web app preview). Opening the web Studio, where it works…");
             if (onDone) onDone(todo.length);
+            openWebStudio();
             return;
           }
           failed++; i++; setCount();
