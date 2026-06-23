@@ -4,7 +4,7 @@
 
 OpenDeck is an [Agent Skill](https://www.agensi.io/learn/agent-skills-open-standard): slides that reveal step-by-step as you click, hover tooltips, a thumbnail rail, fullscreen, and **AI voice narration** generated in-browser (ElevenLabs) that bakes into a fully offline file. Optionally package a deck as a portable `.deck` file for a compatible player app.
 
-The skill follows the universal `SKILL.md` standard, so the **same skill folder works in Claude Code, OpenCode, Codex, Gemini CLI**, and other compatible agents.
+The skill follows the universal `SKILL.md` standard, so the **same skill folder works in Claude Code, OpenCode, Codex, Antigravity CLI**, and other compatible agents.
 
 ![A deck built with OpenDeck — editorial title slide](docs/screenshots/hero.png)
 
@@ -37,16 +37,18 @@ This repo is also a plugin marketplace, so installation is two commands:
 
 (Or add it permanently to a project via `extraKnownMarketplaces` in `.claude/settings.json`.)
 
-### OpenCode, Codex, Gemini CLI (and other `SKILL.md` agents)
+### OpenCode, Codex, Antigravity CLI (and other `SKILL.md` agents)
 
 These tools read skills from a local directory. Drop the `skills/opendeck/` folder into the right place:
 
-| Agent        | Project-scoped                | User-scoped (global)                      |
-| ------------ | ----------------------------- | ----------------------------------------- |
-| OpenCode     | `.opencode/skills/opendeck/`  | `~/.config/opencode/skills/opendeck/`     |
-| Codex        | `.codex/skills/opendeck/`     | `~/.agents/skills/opendeck/`              |
-| Claude Code  | `.claude/skills/opendeck/`    | `~/.claude/skills/opendeck/`              |
-| Gemini CLI   | (its configured skills dir)   | (its configured skills dir)               |
+| Agent           | Project-scoped                | User-scoped (global)                      |
+| --------------- | ----------------------------- | ----------------------------------------- |
+| OpenCode        | `.opencode/skills/opendeck/`  | `~/.config/opencode/skills/opendeck/`     |
+| Codex           | `.codex/skills/opendeck/`     | `~/.agents/skills/opendeck/`              |
+| Antigravity CLI | (its skills dir)              | `~/.gemini/skills/opendeck/`              |
+| Claude Code     | `.claude/skills/opendeck/`    | `~/.claude/skills/opendeck/`              |
+
+> **One folder, many agents.** Per the [OpenCode docs](https://opencode.ai/docs/skills/), OpenCode also discovers skills in the shared `~/.agents/skills/` and `~/.claude/skills/` locations (project: `.agents/skills/`, `.claude/skills/`) — so a single install in `~/.agents/skills/opendeck/` can serve OpenCode, Codex, and other agents that follow the convention.
 
 Fastest way to copy just the skill folder:
 
