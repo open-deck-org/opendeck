@@ -1,7 +1,7 @@
 {
   "name": "opendeck",
   "description": "Build animated, narrated HTML presentation decks — step-by-step reveals, hover tooltips, a thumbnail rail, fullscreen, and in-browser ElevenLabs voice narration that bakes into a fully offline file.",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "author": {
     "name": "Sinisha Djukic"
   },

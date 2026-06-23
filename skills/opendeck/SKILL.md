@@ -4,7 +4,7 @@ description: Build animated, narrated HTML presentation decks — slides that re
 license: MIT
 metadata:
   author: Sinisha Djukic
-  version: 1.1.7
+  version: 1.1.8
   created: "2026-06"
 ---
 
@@ -27,9 +27,12 @@ The shippable kit lives in this skill's **`assets/`** folder. A deck is a single
 | `narration-script.js` | The narration **text**, one line per slide/step. | **Yes** — this is where you write narration |
 | `deck-narration.js` | Narrate + Auto-play controls (merged into the deck overlay) and the Audio Studio. | No — drop in as-is |
 | `narration-audio.js` | **Generated**, not shipped. Holds the audio clips as base64 so narration plays offline. Created by the Studio's "Download audio". | No — produced by the user |
-| `deck-export.js` | **In-browser bundler**: `deckExport.standalone()` inlines every local script, the baked audio, and the web fonts into one self-contained offline `.html`; `deckExport.deck()` wraps that as a portable `.deck` package (deck.json + zip). Plain browser JS — no build step. | No — drop in as-is |
+| `deck-export.js` | **In-browser bundler**: `deckExport.preview()` builds a single self-contained file that **keeps the Studio**; `deckExport.publish()` builds the final share-ready file (Studio removed, audio baked); `deckExport.deck()` wraps a published build as a portable `.deck` package. Plain browser JS — no build step. | No — drop in as-is |
+| `build-standalone.mjs` | **Headless bundler** — the same job from disk with no browser/server: `node build-standalone.mjs [deck.html] [--preview]`. This is how **you (the agent)** bundle, anywhere the files sit together (the Claude web app code sandbox, a local checkout). | No — run it |
 
 `deck-animation.css` is the **required CSS** for reveals/dots/tooltips — paste it into the deck's `<style>` (the starter deck already has it inline).
+
+> **Three shapes of a deck — say which you mean.** The **editable deck** (multi-file on disk, or one file with the Studio) is what you author. A **preview** is one self-contained `.html` that *keeps the Studio* — open it anywhere, keep tuning. **Publishing** produces one self-contained `.html` with the Studio removed and audio baked — the file you share. Same single-file bundle; the only difference is whether authoring stays on.
 
 ---
 
@@ -83,7 +86,19 @@ Rules that matter either way:
 - Each slide: `data-label="…"` (rail label) and `data-speaker-notes="…"` (presenter note, travels with the slide on reorder).
 - Don't set `position`/`inset` on `<section>` — the stage positions them.
 - Keep the `deck-stage:not(:defined){visibility:hidden}` rule to avoid an unstyled flash.
+- Keep the **engine-load watchdog** (the inline `<script>` at the end of `starter-deck.html`). If the deck is ever opened as a lone file without its companion scripts, it replaces the blank screen with an actionable message instead of a black page. It auto-clears when the engine loads, so it's harmless in every deck — don't strip it.
 - `narration-audio.js` is commented out until audio is baked.
+
+### Single-file environments (the Claude web app) — deliver a *preview*, not the kit
+
+The multi-file deck only renders where its companion files are actually served next to it (local disk, a static host, Claude Code). **Some runtimes preview a single HTML file without serving its siblings — most notably the Claude web app's artifact preview.** There, the multi-file deck loads nothing: `<deck-stage>` never upgrades and you get a blank (often black) page — exactly what the watchdog now flags.
+
+So when you're building in a single-file-preview environment, don't hand over the multi-file deck. **Bundle it into one self-contained file first** and hand *that* over:
+
+- While still authoring (you want the Studio for narration), build a **preview** — `node build-standalone.mjs <deck>.html --preview` — it inlines everything but keeps the Studio live.
+- When the deck is final, **publish** — `node build-standalone.mjs <deck>.html` — Studio removed, audio baked.
+
+In the Claude web app the files you write *do* sit together on the code-execution sandbox's filesystem, so `build-standalone.mjs` runs there directly. (`deck-export.js`'s in-browser `deckExport.preview()`/`.publish()` can't run in that preview — it has no http server to fetch siblings from — so prefer the headless bundler here.) See **Step 6** for the full bundling reference.
 
 ---
 
@@ -155,11 +170,12 @@ If the user wants you to draft the script, write it from their instructions, kee
 Audio is generated **in the browser** so the ElevenLabs key never leaves the user's machine and is never baked into a file.
 
 While authoring, the control bar shows a blue **Studio** button (a different colour from the neutral playback controls, so it reads as a build-time tool). It opens a menu of authoring actions:
-- **Audio studio** — a 5-step wizard: **① Connect** (API key + Voice ID) → **② Generate** (one clip per step, progress bar) → **③ Download** (saves `narration-audio.js`) → **④ Place** (move that file next to the deck) → **⑤ Export** (tells the user to ask their AI agent: *"Export this presentation as a standalone file."*). The export step deliberately promotes only the agent path.
-- **Cue overview** — a checklist of every step showing which have narration text and which have audio, to spot gaps before exporting.
-- **Export standalone HTML** — runs the in-browser bundler (Route B) directly, without the console (power-user shortcut).
+- **Audio studio** — a 5-step wizard: **① Connect** (API key + Voice ID) → **② Generate** (one clip per step, progress bar) → **③ Download** (saves `narration-audio.js`) → **④ Place** (move that file next to the deck) → **⑤ Publish** (tells the user to ask their AI agent: *"Publish this presentation as a standalone file."*). The publish step deliberately promotes only the agent path.
+- **Cue overview** — a checklist of every step showing which have narration text and which have audio, to spot gaps before publishing.
+- **Build preview** — runs the in-browser bundler to make a single file that *keeps* the Studio (power-user shortcut for previewing while you author).
+- **Publish standalone** — runs the in-browser bundler for the final share-ready file (Studio removed, audio baked).
 
-The **Studio button is hidden in the exported standalone** (via `window.__DECK_EXPORTED`). The console API still works too (`deckNarration.studio()`), printed on every load.
+The **Studio button is hidden in the published standalone** (via `window.__DECK_EXPORTED`); a *preview* keeps it. The console API still works too (`deckNarration.studio()`), printed on every load.
 
 > Narration text is edited only in `narration-script.js` (the file). There is intentionally **no in-browser narration editor** — browser edits wouldn't survive into the export, so they'd mislead. Change the wording in `narration-script.js`, then re-generate.
 
@@ -169,7 +185,7 @@ Tell the user to:
 3. **② Generate:** click **Generate narration** — one clip per non-empty line, with a progress bar, cached in the browser (IndexedDB). On success the wizard advances. To re-do lines: edit `narration-script.js`, reopen, tick **Re-generate clips that already exist**, and Generate.
 4. **③ Download:** click **Download audio** to save `narration-audio.js`.
 5. **④ Place:** move `narration-audio.js` into the same folder as the deck.
-6. **⑤ Export:** ask the AI agent to *"Export this presentation as a standalone file"* (the agent runs the Route A build).
+6. **⑤ Publish:** ask the AI agent to *"Publish this presentation as a standalone file"* (the agent runs the publish build).
 
 > **Recommend (can't enforce) Chrome or Edge for generation — or serve over http.** The clip cache uses IndexedDB, which **Chromium allows from `file://` but Safari blocks and Firefox treats inconsistently** (the ElevenLabs call itself is fine everywhere — it returns `Access-Control-Allow-Origin: *`). Where the cache is blocked the generated clips live only in memory for that session, so **the user must click "Download audio" before reloading** or they'll regenerate (and re-pay). The Studio detects this and shows an inline warning; the deck also prints the tip to the console. This only affects *generating* — once audio is **baked**, playback reads the inlined map (no IndexedDB), so an exported deck plays offline in **every** browser, including from a double-clicked `file://`.
 
@@ -192,38 +208,46 @@ It is a **single-driver** model: any step change cancels stale audio and any pen
 
 ---
 
-## Step 6 — Bake audio in & export offline
+## Step 6 — Preview, publish & package
 
-To make narration play on **any machine, offline, with no key**:
+Both a **preview** (Studio kept) and a **publish** (Studio removed, audio baked) are the same one-file bundle — they inline every local script, the baked audio, same-origin stylesheets + their `url()` assets, `<img>` sources, and the Google fonts into a single self-contained `.html`. To make narration play on **any machine, offline, with no key**, bake audio in first:
 
 1. In the Studio, click **Download audio** → produces `narration-audio.js` (all clips as base64 data URLs).
 2. Move that file into the deck's folder (next to `deck-stage.js` etc.).
-3. Bundle everything into one self-contained `.html`. There are two routes — both produce the same single file with **zero tools to install**:
+3. Bundle. Three routes follow; **Route A is the default** because it works wherever the files sit together (including the Claude web app sandbox).
 
-### Route A — ask the skill to build it (recommended; no server, no Python)
+### Route A — the headless bundler (`build-standalone.mjs`, recommended)
 
-The user just says *"build the standalone"* and **you (the agent) do the bundling with your own file tools** — nothing runs on their machine. Procedure:
+Run the kit's bundler with your own shell — no browser, no server:
+
+```bash
+node build-standalone.mjs your-deck.html            # publish → your-deck.standalone.html
+node build-standalone.mjs your-deck.html --preview  # preview → your-deck.preview.html (keeps Studio)
+```
+
+It auto-detects the deck (the only `.html` mounting a `<deck-stage>`) if you omit the name, activates `narration-audio.js` when present, embeds the Google fonts over the network (best-effort — keeps the CDN `<link>` if offline), and neutralizes the engine files' literal `</script>` for you. Output goes to stdout. Use `--out FILE` to override the path. **This is how you bundle in the Claude web app** (the files you wrote share the code-sandbox filesystem) and locally.
+
+**No-Node fallback — bundle with file tools by hand.** When Node isn't available, do the same inlining manually:
 
 1. **Read** the deck `.html` and inline every local `<script src="…">` (the kit scripts + `narration-audio.js` if present) by replacing each tag with `<script>…file contents…</script>`. Skip absolute/CDN URLs.
-   - **Mark it exported:** always inject `<script>window.__DECK_EXPORTED=true;</script>` *before* the (inlined) `deck-narration.js`. This hides the authoring **Studio** button in the export, and — when no audio was baked — the Narrate + Auto-play buttons too (nothing to play). With baked audio, Narrate/Auto-play stay; the Studio button is always gone.
-   - **Activate baked audio:** if `narration-audio.js` is in the folder, also un-comment its `<script>` line so the inlined copy is live. If it's absent, just bundle without it (the `__DECK_EXPORTED` flag handles hiding the now-useless controls).
+   - **Publishing? Mark it.** Inject `<script>window.__DECK_EXPORTED=true;</script>` *before* the (inlined) `deck-narration.js`. This hides the **Studio** button, and — when no audio was baked — the Narrate + Auto-play buttons too. **For a *preview*, skip this flag entirely** so the Studio stays live.
+   - **Activate baked audio:** if `narration-audio.js` is in the folder, un-comment its `<script>` line so the inlined copy is live.
    - **⚠ Neutralize closing tags:** the engine files contain the literal text `</script>` inside their doc-comments. Before inlining a file, replace `</script` with `<\/script` in its contents, or the first one will close the block early and corrupt the file.
-2. **Fonts — ask the user** which they want (use `AskUserQuestion`):
-   - **Bake the fonts in (recommended)** — fetch each `woff2` the deck's Google-Fonts `<link>` references and inline it as a base64 `@font-face` rule, then remove the `<link>`/`preconnect`. Result renders identically offline.
-   - **Keep the CDN `<link>`** — smaller file, but the custom fonts only render with an internet connection; offline (or if the fonts aren't installed locally) it falls back to system fonts and looks different.
-3. **Write** the result as `your-deck.standalone.html`. Expect it to be large (the audio dominates — often several MB).
+2. **Fonts:** fetch each `woff2` the deck's Google-Fonts `<link>` references and inline it as a base64 `@font-face` rule, then remove the `<link>`/`preconnect` (renders identically offline). If you can't fetch, leave the CDN `<link>` (custom fonts then need a connection; otherwise system fallback).
+3. **Write** the result as `your-deck.standalone.html` (or `.preview.html`). Expect it to be large when audio is baked (often several MB).
 
 ### Route B — self-service in the browser (`deck-export.js`)
 
-For a user who'd rather not involve the agent: load **`deck-export.js`** (it's one of the kit files) and run this in the browser dev console:
+For a user who'd rather not involve the agent: load **`deck-export.js`** (it's one of the kit files) and run, in the browser dev console:
 
 ```js
-deckExport.standalone()      // downloads your-deck.standalone.html
+deckExport.preview()     // downloads your-deck.preview.html — keeps the Studio
+deckExport.publish()     // downloads your-deck.standalone.html — final, Studio removed
 ```
 
-It does the same inlining (scripts, same-origin stylesheet `<link>`s and their `url()` fonts/images, `<img>` sources, baked audio, and Google fonts — with the `</script>` fix) entirely in the browser. It auto-detects `narration-audio.js` and always tries to bake fonts (falling back to the CDN link if offline). Because it `fetch()`es same-origin files, the deck must be **served over http(s)** for this route — not opened via `file://`. *Inside a Claude design project,* the project's own **"Save as standalone HTML"** export is the equivalent.
+Same inlining as Route A, entirely in the browser. Because it `fetch()`es same-origin files, the deck must be **served over http(s)** — not opened via `file://`, and **not in a single-file preview like the Claude web app** (use Route A there). *Inside a Claude design project,* the project's own **"Save as standalone HTML"** export is the publish equivalent.
 
-Without baking audio, the export is a clean silent deck: the **Narrate + Auto-play controls are hidden** (nothing to play), while all the animation, tooltips, and navigation still work. The clips live only in the browser that made them, so voice returns only if someone regenerates with a key (the `deckNarration.studio()` console API stays available for that).
+Without baked audio, a publish is a clean silent deck: the **Narrate + Auto-play controls are hidden** (nothing to play), while all the animation, tooltips, and navigation still work. The clips live only in the browser that made them, so voice returns only if someone regenerates with a key (the `deckNarration.studio()` console API stays available for that).
 
 ### Route C — package as a portable `.deck` file
 
@@ -232,7 +256,7 @@ When the user wants to present on a phone/tablet, or asks to **"export as a `.de
 ```
 my-talk.deck
 ├── deck.json       # the manifest — see assets/deck.schema.json
-├── index.html      # the standalone export (Route A/B output) — fully self-contained
+├── index.html      # the published file (Route A/B output) — fully self-contained
 └── thumbnail.png   # optional preview image shown in the player's library
 ```
 
@@ -242,7 +266,7 @@ Two routes, same output:
 deckExport.deck()   // browser console: builds the standalone, writes deck.json, downloads my-talk.deck
 ```
 
-…or **ask the agent** to do it with file tools: produce the standalone HTML exactly as in Route A, write it as `index.html`, add a `deck.json`, and zip the two at the archive root as `<id>.deck`. Either way the result is one portable file.
+…or **ask the agent** to do it with file tools: produce the published HTML exactly as in Route A, write it as `index.html`, add a `deck.json`, and zip the two at the archive root as `<id>.deck`. Either way the result is one portable file.
 
 The `deck.json` manifest is defined by **`assets/deck.schema.json`** (JSON Schema) — read that file for the exact field set, types, patterns, and defaults. In short: only `entry` (`"index.html"`) is strictly required; `id` (the filename), `title`, `orientation` (`landscape` for these 1920×1080 decks), and optional `author`/`version` round it out. Add `"$schema": "./deck.schema.json"` to a hand-written `deck.json` for editor validation.
 

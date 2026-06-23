@@ -21,7 +21,8 @@ opendeck/
     ├── deck-narration.js       ← Narrate + Auto-play controls + Audio Studio
     ├── narration-script.js     ← template — write narration text here
     ├── deck-animation.css      ← required styles for reveals/dots/tooltips
-    ├── deck-export.js          ← in-browser bundler → one offline .html / .deck
+    ├── deck-export.js          ← in-browser bundler → preview / publish / .deck
+    ├── build-standalone.mjs    ← headless bundler (node) → preview / publish
     └── deck.schema.json        ← JSON Schema for a .deck package's deck.json
 ```
 
@@ -38,12 +39,13 @@ deck, so they must sit together (no subfolders) in the *output*.
 3. **Replace the slides** with your own `<section>`s. Add `data-step="1/2/3…"` to anything you want to reveal progressively, and `data-tip="…"` for hover notes.
 4. **Write narration** in `narration-script.js` — one line per slide/step.
 5. **Generate audio**: open the deck, open the browser dev console, run `deckNarration.studio()`, paste your ElevenLabs API key + Voice ID, and click Generate.
-6. **Make it portable**: in the studio, click **Download audio** to get `narration-audio.js` and drop it next to the deck. Then bundle into one self-contained `your-deck.standalone.html` — two ways, both needing **nothing installed**:
-   - **Ask Claude** *"build the standalone"* — the skill inlines the scripts, baked audio, and (if you choose) the fonts straight from the folder. No server, no Python.
-   - **Or self-serve in the browser**: run `deckExport.standalone()` in the dev console (serve the deck over http(s) for this, not `file://`).
+6. **Make it portable**: in the studio, click **Download audio** to get `narration-audio.js` and drop it next to the deck. Then bundle into one self-contained `.html` — three ways, all needing **nothing installed**:
+   - **Ask Claude** *"publish the standalone"* (or *"build a preview"* to keep the Studio while you tune) — the agent runs the bundler straight from the folder. No server, no Python.
+   - **Headless**: run `node build-standalone.mjs your-deck.html` (add `--preview` to keep the Studio). Works anywhere the files sit together.
+   - **In the browser**: run `deckExport.publish()` (or `deckExport.preview()`) in the dev console — serve the deck over http(s) for this, not `file://`.
 
-   Either way the result narrates offline, anywhere, with no key and no companion files.
-7. **(Optional) Package for a player app**: run `deckExport.deck()` (or ask the agent) to wrap the standalone into a portable `.deck` file — a Zip of `deck.json` (see `assets/deck.schema.json`) + `index.html` — for playback in a compatible deck player app.
+   A **preview** keeps the authoring Studio (open it anywhere, keep tuning); **publishing** removes the Studio and bakes the audio so the result narrates offline, anywhere, with no key and no companion files.
+7. **(Optional) Package for a player app**: run `deckExport.deck()` (or ask the agent) to wrap the published file into a portable `.deck` file — a Zip of `deck.json` (see `assets/deck.schema.json`) + `index.html` — for playback in a compatible deck player app.
 
 ---
 
@@ -73,4 +75,5 @@ See **`SKILL.md`** for the complete build guide.
 
 ## Changelog
 
+- **1.1.8** — **Preview vs publish.** Bundling now has two modes: a *preview* keeps the Studio live (open it anywhere, keep authoring), *publish* removes it and bakes audio for sharing. New `build-standalone.mjs` headless bundler (runs from disk with no browser/server — the way to bundle in the Claude web app sandbox). New `deckExport.preview()`/`.publish()` (`standalone()` kept as an alias). Starter deck gained an inline engine-load watchdog: if a deck is opened as a lone file without its scripts, it shows an actionable "publish this deck" message instead of a blank page.
 - **1.0.0** — Initial release. Animated, narrated HTML decks: step reveals, tooltips, thumbnail rail, fullscreen, in-browser ElevenLabs Audio Studio, offline audio baking, and `deck-export.js` — an in-browser bundler (`deckExport.standalone()`) that inlines scripts, audio, and fonts into one self-contained `.html`, plus `deckExport.deck()` to package a portable `.deck` file.

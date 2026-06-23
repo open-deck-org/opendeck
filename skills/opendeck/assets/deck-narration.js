@@ -463,7 +463,8 @@
       }
       card.appendChild(item("Audio studio", "Generate, re-generate or download voiceover", openStudio));
       card.appendChild(item("Cue overview", "See which steps have text and which have audio", openCueOverview));
-      card.appendChild(item("Export standalone HTML", "Bake audio + inline everything into one offline file", runExport));
+      card.appendChild(item("Build preview", "One self-contained file that keeps the Studio — open it anywhere", function () { runBundle("preview"); }));
+      card.appendChild(item("Publish standalone", "Bake audio + lock everything into one offline file to share", function () { runBundle("publish"); }));
       back.appendChild(card);
       document.body.appendChild(back);
       studioMenuEl = back;
@@ -487,10 +488,15 @@
         style: c + "cursor:pointer;font-family:" + FONT + ";font-size:13px;font-weight:600;padding:9px 14px;border-radius:8px;" });
     }
 
-    // ---- Export action (no console needed) -----------------------------
-    function runExport() {
+    // ---- Bundle action (no console needed) -----------------------------
+    // mode = "preview" → single file that keeps the Studio; "publish" → final
+    // share-ready file (Studio removed, audio baked).
+    function runBundle(mode) {
+      var isPreview = mode === "preview";
+      var verb = isPreview ? "preview" : "publish";
+      var Verb = isPreview ? "Build preview" : "Publish standalone";
       var m = modal(404);
-      m.panel.appendChild($("div", { style: "font-size:16px;font-weight:700;color:" + INK + ";margin-bottom:10px;", text: "Export standalone HTML" }));
+      m.panel.appendChild($("div", { style: "font-size:16px;font-weight:700;color:" + INK + ";margin-bottom:10px;", text: Verb }));
       var msg = $("div", { style: "font-size:13.5px;color:" + INK + ";line-height:1.5;" });
       var row = $("div", { style: "margin-top:16px;text-align:right;" });
       var close = btn("Close"); close.addEventListener("click", function () { m.back.remove(); });
@@ -499,26 +505,33 @@
 
       // Friendly fallback: when the browser can't bundle on its own (deck opened
       // straight from a file, helper unavailable, or any fetch error), point the
-      // presenter to the no-setup path — just ask the AI agent to export.
+      // presenter to the no-setup path — just ask the AI agent.
       function askAgent(lead) {
+        var ask = isPreview
+          ? "“Build a preview of this presentation”"
+          : "“Publish this presentation as a standalone file”";
         msg.innerHTML = "";
         msg.appendChild($("div", { style: "color:" + INK + ";", text: lead }));
-        msg.appendChild($("div", { style: "margin:12px 0 6px;color:" + GREY + ";font-size:12.5px;", text: "To export your finished presentation, just tell your AI agent:" }));
-        msg.appendChild($("div", { style: "background:#F2F6FA;border:1px solid " + LINE + ";border-radius:8px;padding:12px 14px;font-size:14px;font-weight:600;color:" + INK + ";", text: "“Export this presentation as a standalone file”" }));
-        msg.appendChild($("div", { style: "margin-top:10px;color:" + GREY + ";font-size:12px;line-height:1.45;", text: "It bundles the slides, narration and fonts into one shareable file — no setup needed." }));
+        msg.appendChild($("div", { style: "margin:12px 0 6px;color:" + GREY + ";font-size:12.5px;", text: "Just tell your AI agent:" }));
+        msg.appendChild($("div", { style: "background:#F2F6FA;border:1px solid " + LINE + ";border-radius:8px;padding:12px 14px;font-size:14px;font-weight:600;color:" + INK + ";", text: ask }));
+        msg.appendChild($("div", { style: "margin-top:10px;color:" + GREY + ";font-size:12px;line-height:1.45;",
+          text: isPreview
+            ? "It bundles the slides, narration and fonts into one file that still has the Studio — no setup needed."
+            : "It bakes the audio and locks everything into one shareable file — no setup needed." }));
       }
 
-      var canRun = window.deckExport && typeof window.deckExport.standalone === "function" && location.protocol !== "file:";
+      var fn = window.deckExport && window.deckExport[verb];
+      var canRun = typeof fn === "function" && location.protocol !== "file:";
       if (!canRun) {
         askAgent(location.protocol === "file:"
           ? "This presentation is open straight from a file, so the browser can’t bundle it here."
-          : "The in-browser exporter isn’t available here.");
+          : "The in-browser bundler isn’t available here.");
         return;
       }
       msg.textContent = "Building… inlining the slides, narration and fonts. The download starts automatically.";
-      Promise.resolve().then(function () { return window.deckExport.standalone(); })
+      Promise.resolve().then(function () { return fn(); })
         .then(function (r) { msg.textContent = "Done — saved " + ((r && r.name) || "the file") + ((r && r.bytes) ? " (" + (r.bytes / 1048576).toFixed(1) + " MB)" : "") + "."; })
-        .catch(function () { askAgent("The browser couldn’t finish the export here."); });
+        .catch(function () { askAgent("The browser couldn’t finish here."); });
     }
 
     // ---- helpers for the cue overview ----------------------------------
@@ -596,7 +609,7 @@
       ]));
 
       // ---- stepper (numbered dots + a caption, so it stays compact at 5 steps) ----
-      var STEPS = ["Connect", "Generate", "Download", "Place", "Export"];
+      var STEPS = ["Connect", "Generate", "Download", "Place", "Publish"];
       var stepper = $("div", { style: "margin-bottom:18px;" });
       var dotsRow = $("div", { style: "display:flex;align-items:center;gap:4px;" });
       var stepCaption = $("div", { style: "font-size:12px;color:" + GREY + ";margin-top:9px;" });
@@ -697,15 +710,15 @@
       step4.appendChild($("div", { style: "padding:16px;background:#F2F6FA;border:1px solid " + LINE + ";border-radius:10px;font-size:13.5px;line-height:1.55;color:" + INK + ";",
         html: "Move <code>narration-audio.js</code> into the <b>same folder as your deck</b> — next to the deck’s <code>.html</code> file." }));
 
-      // ========== STEP 5 — Export (ask the agent) ==========
+      // ========== STEP 5 — Publish (ask the agent) ==========
       var step5 = $("div", { style: "display:none;" });
       step5.appendChild($("p", { style: "margin:0 0 14px;font-size:13.5px;line-height:1.5;color:" + INK + ";",
-        text: "Last step — bundle everything into one shareable file." }));
+        text: "Last step — publish everything into one shareable file." }));
       step5.appendChild($("div", { style: "margin:0 0 6px;color:" + GREY + ";font-size:12.5px;", text: "Tell your AI agent:" }));
       step5.appendChild($("div", { style: "background:#F2F6FA;border:1px solid " + LINE + ";border-radius:8px;padding:12px 14px;font-size:14px;font-weight:600;color:" + INK + ";",
-        text: "“Export this presentation as a standalone file”" }));
+        text: "“Publish this presentation as a standalone file”" }));
       step5.appendChild($("div", { style: "margin-top:10px;color:" + GREY + ";font-size:12px;line-height:1.45;",
-        text: "It bundles the slides, narration and fonts into one offline file — no setup needed." }));
+        text: "It bakes the audio and locks everything into one offline file — no setup needed. (To preview while you tune it, ask for a preview instead — that keeps the Studio.)" }));
 
       var stepBody = $("div");
       stepBody.appendChild(step1); stepBody.appendChild(step2); stepBody.appendChild(step3);
@@ -889,8 +902,8 @@
       console.log(
         "%c🎙 Narration audio studio%c\n\n" +
         "While authoring, use the blue Studio button in the control bar —\n" +
-        "Audio Studio, Narration editor, Cue overview, and Export. (It's hidden\n" +
-        "in the exported standalone.) Or from the console:\n\n" +
+        "Audio Studio, Cue overview, Build preview, and Publish. (It's hidden\n" +
+        "in the published standalone.) Or from the console:\n\n" +
         "%c    deckNarration.studio()    %c\n\n" +
         "Other commands:\n" +
         "  deckNarration.play()            – start auto-play with narration\n" +

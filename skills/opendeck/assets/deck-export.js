@@ -13,16 +13,28 @@
  *   • the Google Fonts <link>         → fetched + embedded as base64 @font-face
  *
  * USAGE (from the browser dev console, after the deck has loaded):
- *   deckExport.standalone()   → builds the bundle and downloads it
- *   deckExport.build()        → returns the bundled HTML string (no download)
+ *   deckExport.preview()      → builds a single self-contained file that KEEPS
+ *                               the Studio (open/preview it anywhere, keep
+ *                               authoring) and downloads it
+ *   deckExport.publish()      → builds the final share-ready file (Studio
+ *                               removed, audio baked) and downloads it
+ *   deckExport.standalone()   → alias of publish() (back-compat)
+ *   deckExport.build(opts)    → returns the bundled HTML string (no download);
+ *                               pass { preview: true } to keep the Studio
+ *
+ * PREVIEW vs PUBLISH: both inline everything into ONE file. A *preview* leaves
+ * the authoring Studio live, so it's the file to look at while you're still
+ * tuning the deck (and the right deliverable in single-file environments like
+ * the Claude web app, where the multi-file deck can't load its siblings). A
+ * *publish* sets window.__DECK_EXPORTED, hiding the Studio button — and, when
+ * no audio was baked, the Narrate + Auto-play buttons too — for the final
+ * file you share.
  *
  * AUDIO: generate narration in the Studio (deckNarration.studio()), click
  * "Download audio" to get narration-audio.js, and drop that file next to the
- * deck. The exporter auto-detects it — present → bakes the voiceover in;
- * absent → bundles without it. Either way the export sets window.__DECK_EXPORTED,
- * which hides the authoring Studio button — and, when no audio was baked, the
- * Narrate + Auto-play buttons too. You do NOT need to uncomment the audio
- * <script> tag first; the exporter activates it for you.
+ * deck. The bundler auto-detects it — present → bakes the voiceover in;
+ * absent → bundles without it. You do NOT need to uncomment the audio
+ * <script> tag first; the bundler activates it for you.
  *
  * NOTE: this fetches same-origin files, so the deck must be served over
  * http(s) (e.g. a local server), not opened via file://. Inside a Claude
@@ -196,7 +208,8 @@
     var log = opts.quiet ? function () {} : function (s) { console.log("%c[deckExport]%c " + s, "color:#c75b39;font-weight:700", ""); };
     var html = await fetchText(location.href);   // the deck's pristine source
     html = await bakeAudio(html, log);
-    html = markExported(html);                   // hide authoring controls in the export
+    if (opts.preview) log("• preview build — Studio kept (not marked as published)");
+    else html = markExported(html);              // publish: hide authoring controls
     html = await inlineScripts(html, log);
     html = await inlineStylesheets(html, log);   // same-origin <link> + its url() assets
     html = await embedFonts(html, log);          // remote Google-Fonts <link>
@@ -204,23 +217,42 @@
     return html;
   }
 
-  function outName() {
+  function outName(suffix) {
     var file = (location.pathname.split("/").pop() || "deck.html");
-    return file.replace(/\.html?$/i, "") + ".standalone.html";
+    return file.replace(/\.html?$/i, "") + "." + suffix + ".html";
   }
 
-  async function standalone() {
-    var html = await build();
+  function downloadHtml(html, name) {
     var blob = new Blob([html], { type: "text/html" });
     var a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = outName();
+    a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
-    var mb = (blob.size / 1048576).toFixed(1);
-    console.log("%c[deckExport]%c ✓ downloaded " + a.download + " (" + mb + " MB)", "color:#c75b39;font-weight:700", "");
-    return { name: a.download, bytes: blob.size };
+    return { name: name, bytes: blob.size };
   }
+
+  // Final share-ready file: Studio removed, audio baked.
+  async function publish() {
+    var html = await build();
+    var r = downloadHtml(html, outName("standalone"));
+    var mb = (r.bytes / 1048576).toFixed(1);
+    console.log("%c[deckExport]%c ✓ published " + r.name + " (" + mb + " MB) — ready to share", "color:#c75b39;font-weight:700", "");
+    return r;
+  }
+
+  // Single self-contained file that KEEPS the Studio — for previewing while
+  // you author, and the right deliverable in single-file environments.
+  async function preview() {
+    var html = await build({ preview: true });
+    var r = downloadHtml(html, outName("preview"));
+    var mb = (r.bytes / 1048576).toFixed(1);
+    console.log("%c[deckExport]%c ✓ preview built " + r.name + " (" + mb + " MB) — Studio kept", "color:#c75b39;font-weight:700", "");
+    return r;
+  }
+
+  // Back-compat alias — publish() is the final file.
+  var standalone = publish;
 
   // ── .deck packaging ───────────────────────────────────────────────────────
   // A .deck is a Zip whose root holds deck.json (manifest) + index.html (the
@@ -400,11 +432,11 @@
     return { name: a.download, bytes: blob.size, manifest: manifest };
   }
 
-  window.deckExport = { standalone: standalone, build: build, deck: deck };
+  window.deckExport = { preview: preview, publish: publish, standalone: standalone, build: build, deck: deck };
 
   // Print the hint once, alongside the narration Studio hint.
   try {
-    console.log("%c[deckExport]%c run %cdeckExport.standalone()%c for one self-contained offline .html, or %cdeckExport.deck()%c to package a portable .deck file",
-      "color:#c75b39;font-weight:700", "", "font-weight:700", "", "font-weight:700", "");
+    console.log("%c[deckExport]%c run %cdeckExport.preview()%c for a single file that keeps the Studio, %cdeckExport.publish()%c for the final share-ready .html, or %cdeckExport.deck()%c to package a portable .deck file",
+      "color:#c75b39;font-weight:700", "", "font-weight:700", "", "font-weight:700", "", "font-weight:700", "");
   } catch (e) {}
 })();
