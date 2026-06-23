@@ -68,7 +68,7 @@
 (() => {
   const DESIGN_W_DEFAULT = 1920;
   const DESIGN_H_DEFAULT = 1080;
-  const OVERLAY_HIDE_MS = 1800;
+  const OVERLAY_HIDE_MS = 5000;
   const VALIDATE_ATTR = 'no_overflowing_text,no_overlapping_text,slide_sized_text';
 
   const pad2 = (n) => String(n).padStart(2, '0');
@@ -199,7 +199,7 @@
     }
 
     /* ── Two-row fallback (narrow screens) ───────────────────────────────
-       When the single-row bar can't sit with ~15% clear on each side, fold
+       When the single-row bar can't sit with ~10% clear on each side, fold
        the narration group (Narrate / Auto-play / Studio) onto a second row
        so nothing is cramped or scrolled off. deck-narration injects a
        .row-break before its group; _updateOverlayStack() measures the bar's
@@ -276,10 +276,14 @@
       border-radius: 4px;
     }
 
-    /* Touch devices have no keyboard — drop the shortcut chips. This recovers
-       the width that pushed the control bar off-screen on phones. */
+    /* Touch-primary devices have no keyboard — drop the shortcut chips (R, S,
+       F). This also recovers the width that pushed the bar off-screen on
+       phones. The selector must out-specify the .btn.reset .kbd rule above
+       (media queries add no specificity), or the chips never actually hide.
+       There's no web API for "is a physical keyboard attached," so
+       pointer:coarse is the standard proxy for phones/tablets. */
     @media (pointer: coarse) {
-      .overlay .kbd { display: none; }
+      .overlay .btn.reset .kbd { display: none; }
       .btn.reset { padding: 0 12px; }
     }
 
@@ -1333,20 +1337,28 @@
         if (ov) { ov.removeAttribute('data-stack'); ov.style.width = ''; }
         return;
       }
+      // Available width = the stage region (excludes a left-docked rail), read
+      // from the element itself rather than window.innerWidth. The latter is
+      // stale on mobile right after `orientationchange`; the stage box is
+      // position:fixed/absolute and tracked by our ResizeObserver, so its
+      // width is always the current, post-rotation value.
+      const avail = (this._canvas && this._canvas.parentElement
+        ? this._canvas.parentElement.clientWidth : 0) || this.clientWidth || window.innerWidth;
       // Measure unstacked (single line, children at natural width — they don't
-      // flex-shrink). Stack only when the bar can't sit with ~15% clear each
+      // flex-shrink). Stack only when the bar can't sit with ~10% clear each
       // side. No paint happens between these writes, so there's no flicker
       // even when the bar was already — and stays — stacked.
       ov.removeAttribute('data-stack');
       ov.style.width = '';
-      if (ov.scrollWidth <= window.innerWidth * 0.70) return;
+      if (ov.scrollWidth <= avail * 0.80) return;
       // Pin the pill to the nav row's natural width so the nav controls keep
       // one line and the narration group drops to a second row beneath them.
-      // Capped to the viewport — an over-wide nav (e.g. with a Fullscreen
-      // button on a very small phone) then wraps further, which is fine.
+      // Capped to the available width — an over-wide nav (e.g. with a
+      // Fullscreen button on a very small phone) then wraps further, which is
+      // fine.
       const kids = Array.from(ov.children);
       const bi = kids.findIndex((c) => c.classList && c.classList.contains('row-break'));
-      let w = window.innerWidth - 16;
+      let w = avail - 16;
       if (bi > 0) {
         const navW = Math.ceil(
           kids[bi - 1].getBoundingClientRect().right - kids[0].getBoundingClientRect().left
