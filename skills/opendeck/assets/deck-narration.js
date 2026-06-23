@@ -832,8 +832,21 @@
         }).then(function () {
           i++; setCount(); setBarState(); next();
         }).catch(function (err) {
+          var msg = err && err.message ? err.message : "failed";
+          // An HTTP error (we threw "HTTP 401 …") means we reached ElevenLabs —
+          // bad key/voice, fixable. A bare fetch rejection means the connection
+          // itself was refused (CSP/offline/DNS). If that happens on the very
+          // first clip it's almost always the environment, not the deck — most
+          // notably the Claude web app preview, whose CSP blocks the request.
+          // Stop and say so plainly rather than failing every clip identically.
+          if (!/^HTTP \d/.test(msg) && i === 0) {
+            genBtn.disabled = false; genBtn.style.opacity = "1"; genBtn.textContent = "Generate narration";
+            setStatus("Can’t reach the audio service from here — this environment blocks the connection (e.g. the Claude web app preview). Open this deck in a normal browser tab, or locally, to generate; then publish.");
+            if (onDone) onDone(todo.length);
+            return;
+          }
           failed++; i++; setCount();
-          setStatus("Error on slide " + (c.si + 1) + ": " + (err && err.message ? err.message : "failed"));
+          setStatus("Error on slide " + (c.si + 1) + ": " + msg);
           // brief pause then continue so one failure doesn't abort everything
           setTimeout(next, 400);
         });
@@ -846,21 +859,41 @@
       return new Promise(function (res) { var fr = new FileReader(); fr.onload = function () { res(fr.result); }; fr.readAsDataURL(blob); });
     }
     function downloadAudioJs(setStatus) {
-      var cues = allCues().filter(function (c) { return hasClip(cueKey(c.si, c.step)); });
-      if (!cues.length) { setStatus("Nothing to download yet — generate first."); return; }
-      setStatus("Packaging " + cues.length + " clips…");
-      // Pull blobs back out of IndexedDB (object URLs aren't directly readable as data here)
+      var present = allCues().filter(function (c) { return hasClip(cueKey(c.si, c.step)); });
+      if (!present.length) { setStatus("Nothing to download yet — generate first."); return; }
+      setStatus("Packaging " + present.length + " clips…");
+      // Build cue → (lazy) data-URL resolver. Prefer IndexedDB blobs, then fall
+      // back to the in-memory clips. The fallback matters: where the cache is
+      // blocked (a sandboxed iframe, or Safari/Firefox from file://) IndexedDB
+      // is empty, so without this a browser could generate clips yet never save
+      // them — the in-memory object URLs are the only copy.
       idbGetAll().then(function (all) {
-        var map = {};
-        var voice = null;
+        var byCue = {}, voice = null;
         Object.keys(all).forEach(function (k) {
           var bar = k.indexOf("|"); if (bar < 0) return;
           var cue = k.slice(bar + 1); var rec = all[k];
           if (!rec || !rec.blob) return;
-          if (rec.text != null && rec.text !== lineFor(parseInt(cue), parseInt(cue.split(":")[1], 10))) return;
-          map[cue] = rec.blob; voice = k.slice(0, bar);
+          var si = parseInt(cue.split(":")[0], 10), step = parseInt(cue.split(":")[1], 10);
+          if (rec.text != null && rec.text !== lineFor(si, step)) return;
+          byCue[cue] = (function (blob) { return function () { return blobToDataURL(blob); }; })(rec.blob);
+          voice = voice || k.slice(0, bar);
         });
-        var keys = Object.keys(map);
+        // Fill any gaps from memory (freshly generated, not yet/never cached).
+        present.forEach(function (c) {
+          var cue = cueKey(c.si, c.step);
+          if (byCue[cue]) return;
+          var clip = clips[cue];
+          if (!clip || !clip.url) return;
+          if (clip.baked || clip.url.indexOf("data:") === 0) {
+            byCue[cue] = (function (durl) { return function () { return Promise.resolve(durl); }; })(clip.url);
+            return;
+          }
+          voice = voice || clip.voiceId;
+          byCue[cue] = (function (url) { return function () {
+            return fetch(url).then(function (r) { return r.blob(); }).then(blobToDataURL);
+          }; })(clip.url);
+        });
+        var keys = Object.keys(byCue);
         if (!keys.length) { setStatus("No downloadable clips found."); return; }
         var out = {}; var j = 0;
         (function step() {
@@ -871,10 +904,12 @@
             a.href = URL.createObjectURL(blob); a.download = "narration-audio.js";
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
             setTimeout(function () { try { URL.revokeObjectURL(a.href); } catch (e) {} }, 2000);
-            setStatus("Downloaded narration-audio.js (" + keys.length + " clips).");
+            setStatus("Downloaded narration-audio.js (" + Object.keys(out).length + " clips).");
             return;
           }
-          blobToDataURL(map[keys[j]]).then(function (durl) { out[keys[j]] = durl; j++; step(); });
+          byCue[keys[j]]()
+            .then(function (durl) { if (durl) out[keys[j]] = durl; j++; step(); })
+            .catch(function () { j++; step(); }); // skip a clip we couldn't read
         })();
       });
     }

@@ -4,7 +4,7 @@ description: Build animated, narrated HTML presentation decks — slides that re
 license: MIT
 metadata:
   author: Sinisha Djukic
-  version: 1.1.8
+  version: 1.1.9
   created: "2026-06"
 ---
 
@@ -100,6 +100,13 @@ So when you're building in a single-file-preview environment, don't hand over th
 
 In the Claude web app the files you write *do* sit together on the code-execution sandbox's filesystem, so `build-standalone.mjs` runs there directly. (`deck-export.js`'s in-browser `deckExport.preview()`/`.publish()` can't run in that preview — it has no http server to fetch siblings from — so prefer the headless bundler here.) See **Step 6** for the full bundling reference.
 
+> **⚠ Narration can't be *generated* inside the web app preview.** The artifact preview's Content-Security-Policy blocks the outbound connection to ElevenLabs, so clicking **Generate** in the Studio fails there (the Studio detects this and says so). Generation needs a browser whose CSP isn't locked down — i.e. **outside the sandbox**. Set this expectation up front, then route around it:
+> 1. Build a **preview** (keeps the Studio) and have the user **open it in a normal browser** — download the preview file and open it locally, or open it on any host you control. *Quick thing to try first: Claude's "open in new tab" — it may or may not carry the same CSP, so it's worth one attempt before downloading.*
+> 2. In that real browser the Studio's **Generate → Download audio** works normally (the key stays in their browser). They get `narration-audio.js`.
+> 3. They hand `narration-audio.js` back to you; drop it next to the deck and **publish**.
+>
+> Don't try to generate audio agent-side from the deck's key — the key is meant to never leave the user's browser, and the code sandbox's network egress is restricted anyway.
+
 ---
 
 ## Step 2 — Add step animations
@@ -187,7 +194,7 @@ Tell the user to:
 5. **④ Place:** move `narration-audio.js` into the same folder as the deck.
 6. **⑤ Publish:** ask the AI agent to *"Publish this presentation as a standalone file"* (the agent runs the publish build).
 
-> **Recommend (can't enforce) Chrome or Edge for generation — or serve over http.** The clip cache uses IndexedDB, which **Chromium allows from `file://` but Safari blocks and Firefox treats inconsistently** (the ElevenLabs call itself is fine everywhere — it returns `Access-Control-Allow-Origin: *`). Where the cache is blocked the generated clips live only in memory for that session, so **the user must click "Download audio" before reloading** or they'll regenerate (and re-pay). The Studio detects this and shows an inline warning; the deck also prints the tip to the console. This only affects *generating* — once audio is **baked**, playback reads the inlined map (no IndexedDB), so an exported deck plays offline in **every** browser, including from a double-clicked `file://`.
+> **Recommend (can't enforce) Chrome or Edge for generation — or serve over http.** The clip cache uses IndexedDB, which **Chromium allows from `file://` but Safari blocks and Firefox treats inconsistently**. The ElevenLabs call itself works in any *normal* browser (CORS returns `Access-Control-Allow-Origin: *`); the one exception is a locked-down **CSP** environment — most notably the Claude web app preview, which refuses the connection (see the web-app note in Step 1). Where the *cache* is blocked the generated clips live only in memory for that session, so **the user must click "Download audio" before reloading** or they'll regenerate (and re-pay) — but the download itself works even then (it falls back to the in-memory clips). The Studio detects a blocked cache and shows an inline warning; the deck also prints the tip to the console. This only affects *generating* — once audio is **baked**, playback reads the inlined map (no IndexedDB), so a published deck plays offline in **every** browser, including from a double-clicked `file://`.
 
 Console API (all available globally once the deck loads):
 - `deckNarration.studio()` — open the generation panel
