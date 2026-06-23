@@ -606,6 +606,18 @@
     function selectCopy(input, onDone) {
       try { input.focus(); input.select(); if (document.execCommand("copy")) { onDone(); return; } } catch (e) {}
     }
+    // Open a URL in a new tab, detecting when it's blocked. A sandboxed iframe
+    // without allow-popups (e.g. the Claude web app preview) returns null from
+    // window.open — so target="_blank" silently does nothing. We avoid the
+    // "noopener" feature string (which makes some browsers return null even on
+    // success) and null the opener manually instead. Returns true if it opened.
+    function openLink(url, onBlocked) {
+      var w = null;
+      try { w = window.open(url, "_blank"); } catch (e) { w = null; }
+      if (w) { try { w.opener = null; } catch (e) {} return true; }
+      if (onBlocked) onBlocked();
+      return false;
+    }
     function openWebStudio() {
       var link = webStudioLink();
       var m = modal(456);
@@ -626,6 +638,15 @@
       });
       var openA = $("a", { href: link, target: "_blank", rel: "noopener", text: "Open ↗",
         style: "border:0;background:" + BLUE + ";color:#fff;text-decoration:none;cursor:pointer;font-family:" + FONT + ";font-size:13px;font-weight:600;padding:9px 14px;border-radius:8px;" });
+      openA.addEventListener("click", function (e) {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+        e.preventDefault();
+        openLink(link, function () {
+          var done = function () { copy.textContent = "Link copied"; setTimeout(function () { copy.textContent = "Copy link"; }, 2000); };
+          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(done, function () { selectCopy(input, done); });
+          else selectCopy(input, done);
+        });
+      });
       row.appendChild(close); row.appendChild(copy); row.appendChild(openA);
       m.panel.appendChild(row);
     }
@@ -805,8 +826,21 @@
       });
       var webOpen = $("a", { href: webLinkInput.value, target: "_blank", rel: "noopener", text: "Open Studio ↗",
         style: "border:0;background:" + BLUE + ";color:#fff;text-decoration:none;cursor:pointer;font-family:" + FONT + ";font-size:13px;font-weight:600;padding:9px 14px;border-radius:8px;" });
+      var webOpenHint = $("div", { style: "display:none;font-size:12px;color:" + GREY + ";margin-top:10px;line-height:1.45;" });
+      webOpen.addEventListener("click", function (e) {
+        // Leave modified clicks (⌘/Ctrl/middle) to the browser's own new-tab.
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+        e.preventDefault();
+        openLink(webLinkInput.value, function () {
+          // New tabs are blocked here — copy the link so the user can paste it.
+          var done = function () { webOpenHint.textContent = "New tabs are blocked here — link copied. Paste it into a browser tab to open the Studio."; webOpenHint.style.display = "block"; };
+          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(webLinkInput.value).then(done, function () { selectCopy(webLinkInput, done); });
+          else selectCopy(webLinkInput, done);
+        });
+      });
       webRow.appendChild(webCopy); webRow.appendChild(webOpen);
       webStep1.appendChild(webRow);
+      webStep1.appendChild(webOpenHint);
       var webBack = $("button", { type: "button", text: "← Generate in this browser instead",
         style: "margin:16px 0 0;border:0;background:transparent;cursor:pointer;font-family:" + FONT + ";font-size:12px;color:" + GREY + ";text-decoration:underline;padding:2px 0;" });
       webStep1.appendChild(webBack);
