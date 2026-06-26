@@ -155,4 +155,4 @@ CC0 — implement it freely, no attribution required.
 
 ## License
 
-[MIT](LICENSE) © Sinisha Djukic
+[MIT](LICENSE) © The OpenDeck Authors

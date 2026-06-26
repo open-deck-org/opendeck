@@ -1,6 +1,6 @@
 # OpenDeck — Skill Kit
 
-> **OpenDeck** · `opendeck` · MIT · Sinisha Djukic
+> **OpenDeck** · `opendeck` · MIT · The OpenDeck Authors
 
 A reusable kit for building **animated, narrated HTML presentations**: slides that reveal step-by-step as you click, hover tooltips, a thumbnail rail, fullscreen, and **AI voice narration** with an in-page studio that generates the voiceover (ElevenLabs) and can bake it into a fully offline file.
 

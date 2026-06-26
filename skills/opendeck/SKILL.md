@@ -3,7 +3,7 @@ name: opendeck
 description: Build animated, narrated HTML presentation decks — slides that reveal step-by-step as you click, hover tooltips, a thumbnail rail, fullscreen, plus AI voice narration generated in-browser via ElevenLabs that can be baked into a fully offline file. Use when the user wants a presentation, deck, or slides that animate step-by-step, a self-running or narrated presentation, a deck to present and export, or anything described as "click through and it talks." Can also package the deck as a portable `.deck` file (deck.json + zipped standalone HTML) for playback in a compatible deck player app.
 license: MIT
 metadata:
-  author: Sinisha Djukic
+  author: The OpenDeck Authors
   version: 1.2.4
   created: "2026-06"
 ---

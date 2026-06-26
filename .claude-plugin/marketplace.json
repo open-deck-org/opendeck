@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
   "name": "open-deck",
   "owner": {
-    "name": "Sinisha Djukic"
+    "name": "The OpenDeck Authors"
   },
   "description": "OpenDeck — animated, narrated HTML presentation decks, packaged as an agent skill.",
   "plugins": [
