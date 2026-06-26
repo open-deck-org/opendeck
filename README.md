@@ -138,6 +138,21 @@ You write the narration text (one line per slide/step) in `narration-script.js`;
 
 ---
 
+## The `.deck` format
+
+This kit produces `.deck` packages. The format is an **open standard**, governed
+separately under a CC0 public-domain dedication, so anyone can build their own
+producers and players:
+
+- **Spec:** https://github.com/open-deck-org/opendeck-spec
+- **Player:** the OpenDeck app (Apache-2.0) reads `.deck` files; alternative
+  players are welcome.
+
+This kit is licensed **MIT** (see `LICENSE`). The `.deck` format it emits is
+CC0 — implement it freely, no attribution required.
+
+---
+
 ## License
 
 [MIT](LICENSE) © Sinisha Djukic
