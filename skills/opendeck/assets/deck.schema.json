@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://opendeck.dev/schema/deck.schema.json",
+  "$id": "https://open-deck.org/schema/deck.schema.json",
   "title": "deck.json",
   "description": "Manifest at the root of a .deck package (a Zip containing this file plus the self-contained index.html; MIME type: application/x-deck). Only `entry` is strictly required; everything else has sensible defaults.",
   "type": "object",
